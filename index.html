@@ -634,6 +634,49 @@ document.getElementById("notifSwitch").onchange=(e)=>{
     });
   } else { settings.notifOn=false; saveSettings(settings); }
 };
+const MOTIV_MESSAGES=[
+  "Pas d'excuse aujourd'hui",
+  "Ton futur toi te remercie déjà",
+  "Un jour de plus, une version plus forte",
+  "Lève-toi, c'est l'heure de bosser",
+  "La discipline bat la motivation",
+  "Chaque séance compte, même les petites",
+  "Personne ne devient fort en restant assis",
+  "Tu l'as déjà fait, refais-le",
+  "C'est maintenant que ça se joue",
+  "Ne négocie pas avec toi-même, vas-y",
+  "Ce n'est pas la force qui compte, c'est la volonté de continuer à se battre",
+  "Le combat le plus dur, c'est toujours contre toi-même",
+  "Tant que tu tiens debout, tu n'as pas perdu",
+  "Un champion ne se voit pas à la victoire, mais à ce qu'il est prêt à encaisser",
+  "Les coups font mal, abandonner fait plus mal sur la durée",
+  "Avance, même si c'est un pas à la fois",
+  "Celui qui ne repousse jamais ses limites n'en découvre jamais de nouvelles",
+  "La douleur d'aujourd'hui est la puissance de demain",
+  "Un guerrier ne compte pas les efforts qu'il reste à fournir",
+  "Ton rival le plus coriace, c'est la version de toi d'hier",
+  "On ne devient pas plus fort en évitant le combat",
+  "Chaque rep est une brique posée sur ta détermination",
+  "Il n'y a pas de raccourci, seulement de la régularité",
+  "Les grands progrès sont invisibles jour après jour",
+  "Reste debout une seconde de plus que ce que tu crois pouvoir",
+  "Le talent sans travail s'arrête vite",
+  "Ce que tu refuses de faire aujourd'hui, un autre le fera",
+  "La force ne vient pas de ce que tu peux faire, mais de ce que tu pensais ne pas pouvoir faire",
+  "Entraîne-toi comme si quelqu'un d'autre s'entraînait plus dur que toi",
+  "Un pas en avant, même petit, reste un pas en avant",
+  "Sois plus fort que ta meilleure excuse",
+  "La vraie victoire, c'est de se présenter même sans envie",
+  "Transforme la fatigue d'aujourd'hui en force de demain",
+  "Rien ne remplace les heures que tu mets réellement dedans",
+  "Ton corps peut, c'est ta tête qu'il faut convaincre",
+  "On ne regrette jamais une séance faite, seulement celles ratées",
+  "Garde la tête froide, laisse le corps encaisser",
+  "Un jour sans effort est un jour sans progrès",
+  "La discipline, c'est se choisir soi-même plutôt que le confort",
+  "Le résultat vient après l'effort, jamais avant",
+  "Reste fidèle à l'objectif, même quand la motivation part"
+];
 setInterval(()=>{
   if(!settings.notifOn) return;
   const now=new Date(); const dow=now.getDay();
@@ -646,9 +689,12 @@ setInterval(()=>{
     sessionStorage.setItem(key,"1");
     try{
       const title=(settings.appName||"TOJI");
-      const body=`C'est l'heure de ta séance : ${getDayProgram(dow).name}`;
-      if(swReg && swReg.showNotification){ swReg.showNotification(title,{body, icon:"icon-192.png"}); }
-      else if(navigator.serviceWorker && navigator.serviceWorker.ready){ navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body, icon:"icon-192.png"})); }
+      const sessionName=getDayProgram(dow).name;
+      const phrase=MOTIV_MESSAGES[Math.floor(Math.random()*MOTIV_MESSAGES.length)];
+      const body=`${phrase} — ${sessionName}`;
+      const opts={body, icon:"icon-192.png", vibrate:[300,150,300,150,600], tag:"toji-reminder", renotify:true};
+      if(swReg && swReg.showNotification){ swReg.showNotification(title,opts); }
+      else if(navigator.serviceWorker && navigator.serviceWorker.ready){ navigator.serviceWorker.ready.then(r=>r.showNotification(title,opts)); }
       else { new Notification(title,{body}); }
     }catch(e){}
   }
