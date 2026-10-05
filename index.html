@@ -99,6 +99,9 @@ h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 input:checked + .slider{background:linear-gradient(120deg,var(--accent1),var(--accent2));}
 input:checked + .slider:before{transform:translateX(18px);}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+#guideIllus svg{width:100%;max-width:220px;height:auto;}
+.guide-btn{background:none;border:none;color:var(--accent1);cursor:pointer;padding:2px;display:inline-flex;vertical-align:middle;}
+.ex-head b{display:inline-flex;align-items:center;gap:6px;}
 .modal-bg.active{display:flex;}
 .modal{width:100%;max-width:340px;text-align:center;}
 .timer-num{font-family:'Space Grotesk';font-size:56px;margin:10px 0;}
@@ -131,6 +134,7 @@ select option{background:var(--bg1);color:var(--text);}
       <h1 id="homeTitle">Chargement…</h1>
       <p id="homeSub"></p>
       <button class="btn btn-primary" id="startBtn">Commencer la séance</button>
+      <button class="btn btn-ghost" id="skipBtn" style="margin-top:8px;font-size:13px;">En voyage — sauter sans casser ma série</button>
       <div class="stat-row">
         <div class="stat"><b id="statWeek">0</b><span>séances / semaine</span></div>
         <div class="stat"><b id="statStreak">0</b><span>jours de suite</span></div>
@@ -184,6 +188,10 @@ select option{background:var(--bg1);color:var(--text);}
       <div class="settings-row">
         <div><b style="font-size:14px;">Thème</b><div style="font-size:12px;color:var(--sub);">Clair ou sombre</div></div>
         <label class="switch"><input type="checkbox" id="lightSwitch"><span class="slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <div><b style="font-size:14px;">Repos entre séries</b><div style="font-size:12px;color:var(--sub);">Minuteur auto après chaque série</div></div>
+        <input type="number" id="restSecondsInput" style="background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:8px 10px;color:var(--text);width:70px;text-align:right;">
       </div>
       <div class="section-title">Apparence</div>
       <label class="btn btn-ghost" for="bgFile" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/><path d="M21 16l-5-5-4 4-3-3-5 5"/></svg> Changer la photo de fond</label>
@@ -258,10 +266,23 @@ select option{background:var(--bg1);color:var(--text);}
       <label style="font-size:12px;color:var(--sub);">Durée du chrono par défaut (secondes)</label>
       <input type="number" id="exDur" value="30" style="width:100%;margin-top:4px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);">
     </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:var(--sub);">Note technique perso (optionnel — pour un exercice que tu inventes toi-même)</label>
+      <textarea id="exNote" rows="3" style="width:100%;margin-top:4px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);font-family:inherit;resize:vertical;"></textarea>
+    </div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" id="exSaveBtn">Enregistrer</button>
       <button class="btn btn-ghost" id="exCancelBtn">Annuler</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="guideModal">
+  <div class="glass modal" style="max-width:380px;text-align:left;">
+    <h3 id="guideTitle" style="margin-top:0;text-align:center;"></h3>
+    <div id="guideIllus" style="display:flex;justify-content:center;margin:6px 0 14px;"></div>
+    <div id="guideTips" style="font-size:14px;line-height:1.5;color:var(--text);white-space:pre-line;"></div>
+    <button class="btn btn-ghost" id="guideCloseBtn" style="margin-top:16px;">Fermer</button>
   </div>
 </div>
 
@@ -317,8 +338,66 @@ const ICONS = {
   trash:'<svg class="icn" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V5.2c0-.66.54-1.2 1.2-1.2h2.6c.66 0 1.2.54 1.2 1.2V7M7 7l1 13h8l1-13"/></svg>',
   image:'<svg class="icn" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/><path d="M21 16l-5-5-4 4-3-3-5 5"/></svg>',
   download:'<svg class="icn" viewBox="0 0 24 24"><path d="M12 4v11M8 12l4 4 4-4"/><path d="M4.5 20h15"/></svg>',
-  upload:'<svg class="icn" viewBox="0 0 24 24"><path d="M12 20V9M8 12l4-4 4 4"/><path d="M4.5 20h15"/></svg>'
+  upload:'<svg class="icn" viewBox="0 0 24 24"><path d="M12 20V9M8 12l4-4 4 4"/><path d="M4.5 20h15"/></svg>',
+  info:'<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>'
 };
+
+// POSES : petites illustrations maison (ligne pleine = position de travail, ligne pointillée = position de départ/comparaison)
+const POSES = {
+pushup:`<svg viewBox="0 0 200 110" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="95" x2="190" y2="95" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="50" cy="40" r="9"/><path d="M58 42 150 55 180 65"/><path d="M65 42 60 88"/></g><g stroke="var(--accent1)"><circle cx="50" cy="60" r="9"/><path d="M58 62 150 72 180 80"/><path d="M65 62 60 75 60 88"/></g></svg>`,
+squat:`<svg viewBox="0 0 200 110" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="100" x2="190" y2="100" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="100" cy="22" r="9" transform="translate(0,0)"/><path d="M100 31 100 60"/><path d="M100 60 97 100"/></g><g stroke="var(--accent1)"><circle cx="100" cy="42" r="9"/><path d="M100 51 95 68"/><path d="M95 68 78 85 78 100"/><path d="M95 68 108 82 108 100"/></g></svg>`,
+lunge:`<svg viewBox="0 0 200 110" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="100" x2="190" y2="100" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="100" cy="22" r="9"/><path d="M100 31 100 60 97 100"/></g><g stroke="var(--accent1)"><circle cx="105" cy="38" r="9"/><path d="M105 47 100 60"/><path d="M100 60 130 78 130 100"/><path d="M100 60 72 92 60 100"/></g></svg>`,
+plank:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="92" x2="190" y2="92" stroke="var(--glass-brd)"/><path d="M50 47 180 58" stroke="var(--sub)" stroke-dasharray="3 6" opacity=".7"/><g stroke="var(--accent1)"><circle cx="50" cy="45" r="9"/><path d="M58 47 150 55 180 60"/><path d="M65 47 65 75 80 78"/></g></svg>`,
+sideplank:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="92" x2="190" y2="92" stroke="var(--glass-brd)"/><g stroke="var(--accent1)"><circle cx="45" cy="42" r="9"/><path d="M52 46 160 65"/><path d="M160 65 178 70"/><path d="M60 55 60 80 75 84"/></g></svg>`,
+superman:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="88" x2="190" y2="88" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="40" cy="80" r="9"/><path d="M48 82 150 82 180 82"/><path d="M60 82 30 82"/></g><g stroke="var(--accent1)"><circle cx="40" cy="60" r="9"/><path d="M48 60 150 60 180 45"/><path d="M60 58 25 45"/></g></svg>`,
+pike:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="95" x2="190" y2="95" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><path d="M65 95 110 30 155 95"/><circle cx="92" cy="60" r="8"/></g><g stroke="var(--accent1)"><path d="M65 95 110 30 155 95"/><circle cx="85" cy="75" r="8"/></g></svg>`,
+row:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="95" x2="190" y2="95" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><path d="M70 55 60 90"/></g><g stroke="var(--accent1)"><circle cx="55" cy="35" r="9"/><path d="M60 42 110 55 150 60"/><path d="M90 50 98 68 115 68"/><path d="M100 60 70 90"/><rect x="60" y="80" width="14" height="12" rx="2"/></g></svg>`,
+lateralraise:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="92" x2="190" y2="92" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><path d="M100 45 85 85"/><path d="M100 45 115 85"/></g><g stroke="var(--accent1)"><circle cx="100" cy="32" r="9"/><path d="M100 41 100 70 92 92"/><path d="M100 41 100 70 108 92"/><path d="M100 48 55 48"/><path d="M100 48 145 48"/></g></svg>`,
+snowangel:`<svg viewBox="0 0 120 150" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><path d="M50 55 40 100"/><path d="M70 55 80 100"/></g><g stroke="var(--accent1)"><circle cx="60" cy="25" r="9"/><path d="M60 34 60 110"/><path d="M60 50 15 40"/><path d="M60 50 105 40"/><path d="M60 110 40 140"/><path d="M60 110 80 140"/></g></svg>`,
+calfraise:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="92" x2="190" y2="92" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="100" cy="30" r="9"/><path d="M100 39 100 92"/></g><g stroke="var(--accent1)"><circle cx="100" cy="24" r="9"/><path d="M100 33 100 78"/><path d="M100 78 100 85 112 92"/></g></svg>`,
+crunch:`<svg viewBox="0 0 200 100" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="88" x2="190" y2="88" stroke="var(--glass-brd)"/><g stroke="var(--sub)" stroke-dasharray="4 5" opacity=".6"><circle cx="150" cy="78" r="9"/><path d="M142 78 95 80"/></g><g stroke="var(--accent1)"><circle cx="135" cy="58" r="9"/><path d="M128 62 95 80"/><path d="M95 80 60 72 60 55"/></g></svg>`
+};
+
+// GUIDES : technique par nom exact d'exercice (ceux que tu crées toi-même ne matchent pas — c'est voulu, voir la note perso)
+const EXERCISE_GUIDES = {
+"Pompes classiques":{pose:"pushup",tips:"Mains un peu plus larges que les épaules, corps bien droit de la tête aux talons (pas de bassin qui tombe ni qui monte). Descends jusqu'à ce que la poitrine frôle le sol, coudes à environ 45° du corps, puis pousse."},
+"Pompes pieds surélevés":{pose:"pushup",tips:"Même geste que la pompe classique, mais pieds posés sur une chaise/marche. Plus les pieds sont hauts, plus ça cible le haut des pectoraux et les épaules. Garde le dos bien droit, ne creuse pas les reins."},
+"Pompes diamant":{pose:"pushup",tips:"Mains rapprochées sous le sternum, pouces et index qui se touchent (forme de diamant). Coudes proches du corps à la descente — ça cible surtout les triceps. Mouvement plus difficile, réduis l'amplitude si besoin."},
+"Pompes lentes":{pose:"pushup",tips:"Même mouvement que la pompe classique, mais descente très contrôlée (3-4 secondes) et remontée normale. L'objectif est le temps sous tension, pas la vitesse — mieux vaut moins de reps mais bien lentes."},
+"Crunchs":{pose:"crunch",tips:"Allongé sur le dos, genoux pliés, pieds au sol. Mains derrière la tête sans tirer sur la nuque. Décolle seulement les omoplates du sol en contractant les abdos, redescends sans relâcher complètement."},
+"Gainage":{pose:"plank",tips:"Appui sur avant-bras et pointes de pieds, corps aligné comme une planche (pas de bassin qui monte en pointe, ni qui s'affaisse). Regarde le sol, respire normalement, serre les abdos et les fessiers pendant tout le temps."},
+"Gainage latéral":{pose:"sideplank",tips:"Sur le côté, appui sur un avant-bras aligné sous l'épaule, pieds empilés ou décalés pour l'équilibre. Hanches levées pour former une ligne droite épaule-hanche-pied. Ne laisse pas la hanche tomber vers le sol."},
+"Squats":{pose:"squat",tips:"Pieds largeur épaules, pointes légèrement vers l'extérieur. Descends comme pour t'asseoir, genoux qui suivent la direction des pieds (ne rentrent pas vers l'intérieur), dos droit, poids sur les talons. Descends jusqu'à cuisses parallèles au sol si la mobilité le permet."},
+"Fentes avant":{pose:"lunge",tips:"Grand pas en avant, descends jusqu'à ce que les deux genoux forment un angle d'environ 90°. Le genou avant ne dépasse pas trop la pointe du pied, le genou arrière frôle le sol sans le toucher. Remonte en poussant sur le talon avant."},
+"Fentes":{pose:"lunge",tips:"Grand pas en avant, descends jusqu'à ce que les deux genoux forment un angle d'environ 90°. Le genou avant ne dépasse pas trop la pointe du pied, le genou arrière frôle le sol sans le toucher. Remonte en poussant sur le talon avant."},
+"Squats bulgares":{pose:"lunge",tips:"Comme une fente, mais le pied arrière est posé en hauteur (chaise/marche) derrière toi. La jambe avant fait presque tout le travail — descends jusqu'à ce que la cuisse avant soit parallèle au sol, buste légèrement penché en avant."},
+"Squats pause en bas":{pose:"squat",tips:"Même geste que le squat classique, mais tu marques un arrêt de 1 à 2 secondes en position basse avant de remonter. Ça enlève l'effet rebond et renforce la sortie de position basse — garde les abdos gainés pendant la pause."},
+"Mollets debout":{pose:"calfraise",tips:"Debout, jambes tendues (légère flexion), monte sur la pointe des pieds le plus haut possible, marque une petite pause en haut, puis redescends lentement sans laisser le talon rebondir au sol."},
+"Pike push-ups":{pose:"pike",tips:"Position du chien tête en bas : mains et pieds au sol, hanches hautes, corps en V inversé. Plie les coudes pour amener le sommet du crâne vers le sol entre les mains, puis repousse. Plus les pieds sont proches des mains, plus c'est dur."},
+"Élévations latérales improvisées":{pose:"lateralraise",tips:"Debout, un poids improvisé dans chaque main (bouteilles d'eau, sac). Lève les bras tendus sur le côté jusqu'à l'horizontale (hauteur d'épaule), coudes légèrement fléchis, puis redescends lentement. Ne lève pas plus haut que les épaules."},
+"Reverse snow angels":{pose:"snowangel",tips:"Allongé sur le ventre, bras le long du corps, paumes vers le sol. Lève légèrement la poitrine et les bras, puis fais glisser les bras vers l'avant en arc de cercle jusqu'au-dessus de la tête (comme un ange des neiges à l'envers), puis reviens. Mouvement lent et contrôlé."},
+"Superman":{pose:"superman",tips:"Allongé sur le ventre, bras tendus devant la tête. Lève simultanément bras, poitrine et jambes du sol en contractant le bas du dos et les fessiers. Marque une pause en haut, puis redescends en contrôlant."},
+"Rowing sac à dos":{pose:"row",tips:"Penché en avant, dos droit (pas rond), un sac à dos lesté (livres) tenu à bout de bras. Tire le poids vers les côtes en reculant le coude, omoplate qui se rapproche de la colonne, puis redescends lentement sans arrondir le dos."}
+};
+
+function openGuide(name, note){
+  const g = EXERCISE_GUIDES[name];
+  document.getElementById("guideTitle").textContent = name;
+  const illus = document.getElementById("guideIllus");
+  const tips = document.getElementById("guideTips");
+  if(g){
+    illus.innerHTML = POSES[g.pose] || "";
+    illus.style.display = "flex";
+    tips.textContent = g.tips + (note ? "\n\nTa note : "+note : "");
+  } else {
+    illus.style.display = "none";
+    tips.textContent = note
+      ? "Pas de schéma pour cet exercice (tu l'as créé toi-même) — voici ta note :\n\n"+note
+      : "Pas de schéma pour cet exercice que tu as créé toi-même. Tu peux ajouter ta propre note technique en modifiant l'exercice dans Réglages → Séances.";
+  }
+  document.getElementById("guideModal").classList.add("active");
+}
+document.getElementById("guideCloseBtn").onclick=()=>document.getElementById("guideModal").classList.remove("active");
 
 const DAY_NAMES = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 const LS_KEY="forge_sessions", LS_SET="forge_settings", LS_PROG="forge_program";
@@ -370,7 +449,7 @@ function loadSettings(){
   try{ return JSON.parse(localStorage.getItem(LS_SET)) || defaultSettings(); }catch(e){ return defaultSettings(); }
 }
 function defaultSettings(){
-  return {theme:"dark", appName:"TOJI", bgImage:null, notifOn:false, notifTimes:{1:"19:00",2:"19:00",4:"19:00",6:"10:00"}, notifEnabled:{1:true,2:true,4:true,6:true}};
+  return {theme:"dark", appName:"TOJI", bgImage:null, notifOn:false, notifTimes:{1:"19:00",2:"19:00",4:"19:00",6:"10:00"}, notifEnabled:{1:true,2:true,4:true,6:true}, restSeconds:60};
 }
 function saveSettings(s){ localStorage.setItem(LS_SET, JSON.stringify(s)); }
 
@@ -406,6 +485,10 @@ document.getElementById("themeToggle").onclick=()=>{
 };
 document.getElementById("lightSwitch").onchange=(e)=>{
   settings.theme = e.target.checked?"light":"dark"; saveSettings(settings); applyTheme();
+};
+document.getElementById("restSecondsInput").value = settings.restSeconds||60;
+document.getElementById("restSecondsInput").onchange=(e)=>{
+  settings.restSeconds = parseInt(e.target.value)||60; saveSettings(settings);
 };
 
 // NAV
@@ -460,11 +543,13 @@ function renderHome(){
     document.getElementById("startBtn").style.display="block";
   }
   const sessions=loadSessions();
-  document.getElementById("statTotal").textContent=sessions.length;
+  const realSessions=sessions.filter(s=>!s.skip);
+  document.getElementById("statTotal").textContent=realSessions.length;
   const weekStart=getWeekStart();
-  const thisWeek=sessions.filter(s=>new Date(s.date)>=weekStart);
+  const thisWeek=realSessions.filter(s=>new Date(s.date)>=weekStart);
   document.getElementById("statWeek").textContent=thisWeek.length;
   document.getElementById("statStreak").textContent=computeStreak(sessions);
+  document.getElementById("skipBtn").style.display = day.rest ? "none" : "block";
   checkMissedReminder();
 }
 function getWeekStart(){
@@ -484,6 +569,20 @@ function computeStreak(sessions){
 
 // SESSION
 document.getElementById("startBtn").onclick=()=>{ buildSession(); showView("session"); };
+document.getElementById("skipBtn").onclick=(e)=>{
+  if(e.target.dataset.armed==="1"){
+    const day=getDayProgram(today);
+    const sessions=loadSessions();
+    sessions.push({date:new Date().toISOString(), day:today, dayName:day.name, entries:[], skip:true});
+    saveSessions(sessions);
+    e.target.dataset.armed="0"; e.target.textContent="En voyage — sauter sans casser ma série";
+    showToast("Jour sauté — ta série est préservée.");
+    renderHome();
+  } else {
+    e.target.dataset.armed="1"; e.target.textContent="Confirmer le jour sauté ?";
+    setTimeout(()=>{ if(e.target.dataset.armed==="1"){ e.target.dataset.armed="0"; e.target.textContent="En voyage — sauter sans casser ma série"; } },3000);
+  }
+};
 function buildSession(){
   const day=getDayProgram(today); currentSessionEntries=[];
   document.getElementById("sessDayPill").textContent=DAY_NAMES[today];
@@ -499,11 +598,22 @@ function buildSession(){
         setsHtml+=`<div class="set-row"><span>Série ${s+1}</span><input type="number" placeholder="reps (${ex.range})" data-ex="${i}" data-set="${s}"></div>`;
       }
     }
-    card.innerHTML=`<div class="ex-head"><div><b>${ex.n}</b><small>${ex.sets} séries · ${ex.range}</small></div></div><div class="sets">${setsHtml}</div>`;
+    card.innerHTML=`<div class="ex-head"><div><b>${ex.n} <button class="guide-btn" data-i="${i}">${ICONS.info}</button></b><small>${ex.sets} séries · ${ex.range}</small></div></div><div class="sets">${setsHtml}</div>`;
     list.appendChild(card);
   });
   list.querySelectorAll(".timer-btn").forEach(b=>{
-    b.onclick=()=>openTimer(parseInt(b.dataset.dur), b.dataset.target);
+    b.onclick=()=>{
+      const i=parseInt(b.dataset.target.split("-")[0]);
+      openTimer(parseInt(b.dataset.dur), b.dataset.target, day.ex[i].n.toUpperCase());
+    };
+  });
+  list.querySelectorAll(".guide-btn").forEach(b=>{
+    b.onclick=()=>{ const ex=day.ex[parseInt(b.dataset.i)]; openGuide(ex.n, ex.note); };
+  });
+  list.querySelectorAll(".set-row").forEach(row=>{
+    if(row.querySelector(".timer-btn")) return;
+    const inp=row.querySelector("input[type=number]");
+    if(inp) inp.addEventListener("change", ()=>{ if(inp.value) openTimer(settings.restSeconds||60, null, "REPOS"); });
   });
 }
 document.getElementById("finishBtn").onclick=()=>{
@@ -520,8 +630,9 @@ document.getElementById("finishBtn").onclick=()=>{
 
 // TIMER
 let timerInterval=null, timerSeconds=30, timerTarget=null;
-function openTimer(dur, target){
+function openTimer(dur, target, label){
   timerSeconds=dur; timerTarget=target;
+  document.getElementById("timerLabel").textContent = label || "MINUTEUR";
   document.getElementById("timerNum").textContent=timerSeconds;
   document.getElementById("timerModal").classList.add("active");
 }
@@ -559,20 +670,32 @@ function renderHistory(){
   const sessions=loadSessions().slice().reverse();
   const el=document.getElementById("histList");
   if(!sessions.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Aucune séance enregistrée pour l\'instant.</p>'; return; }
-  el.innerHTML = sessions.map(s=>{
+  el.innerHTML = sessions.map((s,i)=>{
     const d=new Date(s.date);
-    return `<div class="hist-item"><b>${s.dayName}</b><div>${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} — ${s.entries.length} exercices</div></div>`;
+    const dateStr=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    if(s.skip){
+      return `<div class="hist-item"><b>${s.dayName}</b><div>${dateStr} — Jour sauté (voyage)</div></div>`;
+    }
+    const detail=s.entries.map(en=>`<div style="margin:4px 0;"><b style="font-size:13px;">${en.name}</b><div style="font-size:12px;color:var(--sub);">${en.values.map(v=>v==null?"—":v).join(" · ")}</div></div>`).join("");
+    return `<div class="hist-item hist-clickable" data-i="${i}" style="cursor:pointer;"><b>${s.dayName}</b><div>${dateStr} — ${s.entries.length} exercices</div><div class="hist-detail" id="histDetail${i}" style="display:none;margin-top:10px;border-top:1px solid var(--glass-brd);padding-top:10px;">${detail}</div></div>`;
   }).join("");
+  el.querySelectorAll(".hist-clickable").forEach(item=>{
+    item.onclick=()=>{
+      const det=document.getElementById("histDetail"+item.dataset.i);
+      det.style.display = det.style.display==="none" ? "block" : "none";
+    };
+  });
 }
 
 // REPORT
 function renderReport(){
   const sessions=loadSessions();
   const weekStart=getWeekStart();
-  const thisWeek=sessions.filter(s=>new Date(s.date)>=weekStart);
+  const thisWeekAll=sessions.filter(s=>new Date(s.date)>=weekStart);
+  const thisWeek=thisWeekAll.filter(s=>!s.skip);
   document.getElementById("repDone").textContent=thisWeek.length;
   const expectedDays=[0,1,2,3,4,5,6].filter(d=>!getDayProgram(d).rest);
-  const doneDays=new Set(thisWeek.map(s=>s.day));
+  const doneDays=new Set(thisWeekAll.map(s=>s.day));
   const missed=expectedDays.filter(d=>!doneDays.has(d)).length;
   document.getElementById("repMissed").textContent=missed;
   let plankTotal=0;
@@ -777,8 +900,11 @@ function renderProgExList(){
   if(!tpl.ex || !tpl.ex.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Aucun exercice.</p>'; return; }
   tpl.ex.forEach((ex,i)=>{
     const row=document.createElement("div"); row.className="progress-row";
-    row.innerHTML=`<span>${ex.n} <small style="color:var(--sub);">(${ex.timed?"Chrono":"Rep"} · ${ex.sets}x)</small></span><span style="display:flex;gap:10px;"><button data-i="${i}" class="editExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.pencil}</button><button data-i="${i}" class="delExBtn" style="background:none;border:none;color:var(--danger);cursor:pointer;">${ICONS.trash}</button></span>`;
+    row.innerHTML=`<span>${ex.n} <small style="color:var(--sub);">(${ex.timed?"Chrono":"Rep"} · ${ex.sets}x)</small></span><span style="display:flex;gap:10px;"><button data-i="${i}" class="guideExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.info}</button><button data-i="${i}" class="editExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.pencil}</button><button data-i="${i}" class="delExBtn" style="background:none;border:none;color:var(--danger);cursor:pointer;">${ICONS.trash}</button></span>`;
     el.appendChild(row);
+  });
+  el.querySelectorAll(".guideExBtn").forEach(b=>{
+    b.onclick=()=>{ const ex=tpl.ex[parseInt(b.dataset.i)]; openGuide(ex.n, ex.note); };
   });
   el.querySelectorAll(".editExBtn").forEach(b=>b.onclick=()=>openExModal(parseInt(b.dataset.i)));
   el.querySelectorAll(".delExBtn").forEach(b=>{
@@ -817,6 +943,7 @@ function openExModal(index){
     document.getElementById("exSets").value=3;
     document.getElementById("exRange").value="";
     document.getElementById("exDur").value=30;
+    document.getElementById("exNote").value="";
     setExType("rep");
   } else {
     const ex=PROG.templates[selectedTemplateId].ex[exEditIndex];
@@ -824,6 +951,7 @@ function openExModal(index){
     document.getElementById("exSets").value=ex.sets;
     document.getElementById("exRange").value=ex.range;
     document.getElementById("exDur").value=ex.dur||30;
+    document.getElementById("exNote").value=ex.note||"";
     setExType(ex.timed?"chrono":"rep");
   }
   document.getElementById("exModal").classList.add("active");
@@ -835,9 +963,10 @@ document.getElementById("exSaveBtn").onclick=()=>{
   if(!name){ showToast("Donne un nom à l'exercice."); return; }
   const sets=parseInt(document.getElementById("exSets").value)||3;
   const range=document.getElementById("exRange").value.trim();
+  const note=document.getElementById("exNote").value.trim();
   const obj = exType==="chrono"
-    ? {n:name, range: range||"secondes", sets, timed:true, dur: parseInt(document.getElementById("exDur").value)||30}
-    : {n:name, range: range||"reps", sets};
+    ? {n:name, range: range||"secondes", sets, timed:true, dur: parseInt(document.getElementById("exDur").value)||30, note}
+    : {n:name, range: range||"reps", sets, note};
   if(!PROG.templates[selectedTemplateId].ex) PROG.templates[selectedTemplateId].ex=[];
   if(exEditIndex==null) PROG.templates[selectedTemplateId].ex.push(obj);
   else PROG.templates[selectedTemplateId].ex[exEditIndex]=obj;
