@@ -139,6 +139,7 @@ select option{background:var(--bg1);color:var(--text);}
       <p id="homeSub"></p>
       <button class="btn btn-primary" id="startBtn">Commencer la séance</button>
       <button class="btn btn-ghost" id="skipBtn" style="margin-top:8px;font-size:13px;">En voyage — sauter sans casser ma série</button>
+      <button class="btn btn-ghost" id="catchupBtn" style="margin-top:8px;font-size:13px;">Rattraper une séance passée</button>
       <div class="stat-row">
         <div class="stat"><b id="statWeek">0</b><span>séances / semaine</span></div>
         <div class="stat"><b id="statStreak">0</b><span>jours de suite</span></div>
@@ -153,9 +154,6 @@ select option{background:var(--bg1);color:var(--text);}
       <div class="daypill" id="sessDayPill">—</div>
       <h2 id="sessTitle" style="margin:4px 0 14px;">—</h2>
       <div id="sessList"></div>
-      <div class="finish-bar">
-        <button class="btn btn-primary" id="finishBtn">Terminer la séance</button>
-      </div>
     </div>
   </div>
 
@@ -276,6 +274,34 @@ select option{background:var(--bg1);color:var(--text);}
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" id="exSaveBtn">Enregistrer</button>
       <button class="btn btn-ghost" id="exCancelBtn">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="catchupModal">
+  <div class="glass modal" style="text-align:center;">
+    <h3 style="margin-top:0;">Rattraper une séance</h3>
+    <p style="color:var(--sub);font-size:14px;">Choisis le jour que tu veux rattraper — pas besoin de toucher à l'heure du téléphone.</p>
+    <input type="date" id="catchupDate" style="width:100%;margin:10px 0;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);">
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" id="catchupCancelBtn" style="flex:1;">Annuler</button>
+      <button class="btn btn-primary" id="catchupStartBtn" style="flex:1;">Remplir sur l'app</button>
+    </div>
+    <div style="border-top:1px solid var(--glass-brd);margin:16px 0 10px;padding-top:12px;text-align:left;">
+      <p style="color:var(--sub);font-size:13px;margin:0 0 6px;">Ou colle ta séance direct en texte (une ligne par exercice) :</p>
+      <textarea id="catchupImportText" placeholder="Pompes: 15,12,10&#10;Squats: 20,18,15" style="width:100%;min-height:100px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;"></textarea>
+      <button class="btn btn-primary" id="catchupImportBtn" style="width:100%;margin-top:8px;">Importer ce texte</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="confirmFinishModal">
+  <div class="glass modal" style="text-align:center;">
+    <h3 style="margin-top:0;">Séance terminée ?</h3>
+    <p style="color:var(--sub);font-size:14px;">Tu viens de faire la dernière série. On enregistre ta séance ?</p>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <button class="btn btn-ghost" id="confirmFinishNo" style="flex:1;">Continuer</button>
+      <button class="btn btn-primary" id="confirmFinishYes" style="flex:1;">Terminer</button>
     </div>
   </div>
 </div>
@@ -588,9 +614,71 @@ document.getElementById("skipBtn").onclick=(e)=>{
     setTimeout(()=>{ if(e.target.dataset.armed==="1"){ e.target.dataset.armed="0"; e.target.textContent="En voyage — sauter sans casser ma série"; } },3000);
   }
 };
-function buildSession(){
-  const day=getDayProgram(today); currentSessionEntries=[];
-  document.getElementById("sessDayPill").textContent=DAY_NAMES[today];
+let sessionDay=null, sessionDow=null, sessionDateOverride=null;
+function isLastSet(i,s){ return sessionDay && i===sessionDay.ex.length-1 && s===sessionDay.ex[i].sets-1; }
+function showFinishConfirm(){ document.getElementById("confirmFinishModal").classList.add("active"); }
+function finishSession(){
+  const day=sessionDay || getDayProgram(today);
+  const dow = sessionDow!=null ? sessionDow : today;
+  const entries=day.ex.map((ex,i)=>{
+    const vals=[...document.querySelectorAll(`input[data-ex="${i}"]`)].map(inp=>inp.value?parseInt(inp.value):null);
+    return {name:ex.n, values:vals};
+  });
+  const sessions=loadSessions();
+  const isoDate = sessionDateOverride ? new Date(sessionDateOverride+"T12:00:00").toISOString() : new Date().toISOString();
+  sessions.push({date:isoDate, day:dow, dayName:day.name, entries});
+  saveSessions(sessions);
+  sessionDow=null; sessionDateOverride=null;
+  showView("home"); renderHome();
+}
+document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
+document.getElementById("confirmFinishNo").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); };
+document.getElementById("catchupBtn").onclick=()=>{
+  document.getElementById("catchupDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("catchupModal").classList.add("active");
+};
+document.getElementById("catchupCancelBtn").onclick=()=>document.getElementById("catchupModal").classList.remove("active");
+document.getElementById("catchupStartBtn").onclick=()=>{
+  const val=document.getElementById("catchupDate").value;
+  if(!val) return;
+  const dow=new Date(val+"T12:00:00").getDay();
+  document.getElementById("catchupModal").classList.remove("active");
+  buildSession(dow, val);
+  showView("session");
+};
+function parseImportText(text){
+  return text.split("\n").map(l=>l.trim()).filter(Boolean).map(line=>{
+    const idx=line.indexOf(":");
+    if(idx===-1) return null;
+    const name=line.slice(0,idx).trim();
+    const rest=line.slice(idx+1).trim();
+    const values=rest.split(/[,\s]+/).filter(Boolean).map(v=>parseInt(v)).filter(v=>!isNaN(v));
+    if(!name || !values.length) return null;
+    return {name, values};
+  }).filter(Boolean);
+}
+document.getElementById("catchupImportBtn").onclick=()=>{
+  const val=document.getElementById("catchupDate").value;
+  const txt=document.getElementById("catchupImportText").value;
+  if(!val){ alert("Choisis d'abord une date."); return; }
+  const entries=parseImportText(txt);
+  if(!entries.length){ alert("Format non reconnu. Exemple :\nPompes: 15,12,10"); return; }
+  const dow=new Date(val+"T12:00:00").getDay();
+  const day=getDayProgram(dow);
+  const sessions=loadSessions();
+  sessions.push({date:new Date(val+"T12:00:00").toISOString(), day:dow, dayName:day.name, entries});
+  saveSessions(sessions);
+  document.getElementById("catchupImportText").value="";
+  document.getElementById("catchupModal").classList.remove("active");
+  showView("home"); renderHome();
+};
+
+function buildSession(overrideDow, overrideDate){
+  const dow = overrideDow!=null ? overrideDow : today;
+  sessionDow = overrideDow!=null ? overrideDow : null;
+  sessionDateOverride = overrideDate || null;
+  const day=getDayProgram(dow); sessionDay=day; currentSessionEntries=[];
+  document.getElementById("sessDayPill").textContent = overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : DAY_NAMES[dow];
   document.getElementById("sessTitle").textContent=day.name;
   const list=document.getElementById("sessList"); list.innerHTML="";
   day.ex.forEach((ex,i)=>{
@@ -620,21 +708,12 @@ function buildSession(){
       const inp=document.querySelector(`input[data-ex="${b.dataset.ex}"][data-set="${b.dataset.set}"]`);
       if(!inp.value) return;
       b.textContent="✓"; b.classList.add("set-ok-done");
-      openTimer(settings.restSeconds||60, null, "REPOS");
+      const i=parseInt(b.dataset.ex), s=parseInt(b.dataset.set);
+      if(isLastSet(i,s)){ showFinishConfirm(); }
+      else { openTimer(settings.restSeconds||60, null, "REPOS"); }
     };
   });
 }
-document.getElementById("finishBtn").onclick=()=>{
-  const day=getDayProgram(today);
-  const entries=day.ex.map((ex,i)=>{
-    const vals=[...document.querySelectorAll(`input[data-ex="${i}"]`)].map(inp=>inp.value?parseInt(inp.value):null);
-    return {name:ex.n, values:vals};
-  });
-  const sessions=loadSessions();
-  sessions.push({date:new Date().toISOString(), day:today, dayName:day.name, entries});
-  saveSessions(sessions);
-  showView("home"); renderHome();
-};
 
 // TIMER
 let timerInterval=null, timerSeconds=30, timerInitial=30, timerTarget=null, timerPaused=false;
@@ -653,12 +732,13 @@ function startCountdown(){
     timerSeconds--; document.getElementById("timerNum").textContent=Math.max(timerSeconds,0);
     if(timerSeconds<=0){
       clearInterval(timerInterval); beep();
+      document.getElementById("timerModal").classList.remove("active");
       if(timerTarget){
-        const [i,s]=timerTarget.split("-");
+        const [i,s]=timerTarget.split("-").map(Number);
         const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
         if(inp && !inp.value) inp.value = timerInitial;
+        if(isLastSet(i,s)) showFinishConfirm();
       }
-      document.getElementById("timerModal").classList.remove("active");
     }
   },1000);
 }
