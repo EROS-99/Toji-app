@@ -30,7 +30,7 @@ body{
   font-family:'Inter',sans-serif; color:var(--text);
   background:radial-gradient(circle at 15% 0%, var(--bg2), var(--bg1) 60%);
   background-size:cover; background-position:center; background-attachment:fixed;
-  min-height:100%; padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  min-height:100%; padding-top:calc(90px + env(safe-area-inset-top,0px)); padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
   position:relative;
 }
 body::before{
@@ -77,7 +77,7 @@ h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 .timer-btn{background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:8px 10px;color:var(--accent1);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .timer-btn .icn{width:14px;height:14px;vertical-align:-2px;}
 .finish-bar{margin-top:18px;}
-.navbar{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;}
+.navbar{position:fixed;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:flex;justify-content:center;z-index:50;}
 .navbar-inner{display:flex;gap:4px;background:var(--glass);border:1px solid var(--glass-brd);backdrop-filter:blur(20px);border-radius:20px;padding:6px;max-width:500px;width:100%;}
 .nav-btn{flex:1;text-align:center;padding:9px 4px;border-radius:14px;cursor:pointer;font-size:11px;color:var(--sub);}
 .nav-btn.active{background:linear-gradient(120deg,var(--accent1),var(--accent2));color:#0b0e17;font-weight:600;}
@@ -154,6 +154,7 @@ select option{background:var(--bg1);color:var(--text);}
       <div class="daypill" id="sessDayPill">—</div>
       <h2 id="sessTitle" style="margin:4px 0 14px;">—</h2>
       <div id="sessList"></div>
+      <button class="btn btn-primary" id="finishSessionBtn" style="margin-top:16px;width:100%;">Terminer la séance</button>
     </div>
   </div>
 
@@ -631,6 +632,7 @@ function finishSession(){
   sessionDow=null; sessionDateOverride=null;
   showView("home"); renderHome();
 }
+document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
 document.getElementById("confirmFinishNo").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); };
 document.getElementById("catchupBtn").onclick=()=>{
@@ -742,7 +744,17 @@ function startCountdown(){
     }
   },1000);
 }
-document.getElementById("timerClose").onclick=()=>{ clearInterval(timerInterval); document.getElementById("timerModal").classList.remove("active"); };
+document.getElementById("timerClose").onclick=()=>{
+  clearInterval(timerInterval);
+  document.getElementById("timerModal").classList.remove("active");
+  if(timerTarget){
+    const [i,s]=timerTarget.split("-").map(Number);
+    const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
+    if(inp && !inp.value) inp.value = timerInitial;
+    if(isLastSet(i,s)) showFinishConfirm();
+  }
+  timerTarget=null;
+};
 document.getElementById("timerPlus").onclick=()=>{ timerSeconds+=5; timerInitial+=5; document.getElementById("timerNum").textContent=timerSeconds; };
 document.getElementById("timerMinus").onclick=()=>{ timerSeconds=Math.max(5,timerSeconds-5); timerInitial=Math.max(5,timerInitial-5); document.getElementById("timerNum").textContent=timerSeconds; };
 document.getElementById("timerPause").onclick=()=>{
