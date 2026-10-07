@@ -800,9 +800,14 @@ function renderReport(){
   const thisWeekAll=sessions.filter(s=>new Date(s.date)>=weekStart);
   const thisWeek=thisWeekAll.filter(s=>!s.skip);
   document.getElementById("repDone").textContent=thisWeek.length;
+  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
   const expectedDays=[0,1,2,3,4,5,6].filter(d=>!getDayProgram(d).rest);
   const doneDays=new Set(thisWeekAll.map(s=>s.day));
-  const missed=expectedDays.filter(d=>!doneDays.has(d)).length;
+  const missed=expectedDays.filter(d=>{
+    const offset=(d+6)%7;
+    const dayDate=new Date(weekStart); dayDate.setDate(dayDate.getDate()+offset);
+    return dayDate<=todayDate && !doneDays.has(d);
+  }).length;
   document.getElementById("repMissed").textContent=missed;
   let plankTotal=0;
   thisWeek.forEach(s=>s.entries.forEach(e=>{ if(e.name.toLowerCase().includes("gainage")) e.values.forEach(v=>{ if(v) plankTotal+=v; }); }));
@@ -824,7 +829,7 @@ function renderReport(){
   const names=[...new Set([...Object.keys(curMax),...Object.keys(prevMax)])];
   const progEl=document.getElementById("repProgress");
   if(!names.length){ progEl.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p>'; return; }
-  progEl.innerHTML = names.map(n=>{
+  progEl.innerHTML = '<p style="color:var(--sub);font-size:12px;margin:0 0 10px;">Meilleure série de la semaine, comparée à la meilleure série de la semaine dernière. "—" = pas de donnée la semaine passée pour comparer.</p>' + names.map(n=>{
     const c=curMax[n], p=prevMax[n];
     let diff="";
     if(c!=null && p!=null){
