@@ -749,6 +749,12 @@ function showView(id){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.v===id));
+  const inner=document.getElementById("navbar");
+  const act=document.querySelector(".nav-btn.active");
+  if(inner && act){
+    const left=act.offsetLeft-(inner.clientWidth-act.offsetWidth)/2;
+    inner.scrollTo({left:Math.max(0,left), behavior:"smooth"});
+  }
   if(id==="history") renderHistory();
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
