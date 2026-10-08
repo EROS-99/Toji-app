@@ -78,8 +78,9 @@ h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 .timer-btn .icn{width:14px;height:14px;vertical-align:-2px;}
 .finish-bar{margin-top:18px;}
 .navbar{position:fixed;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:flex;justify-content:center;z-index:50;}
-.navbar-inner{display:flex;gap:4px;background:var(--glass);border:1px solid var(--glass-brd);backdrop-filter:blur(20px);border-radius:20px;padding:6px;max-width:500px;width:100%;}
-.nav-btn{flex:1;text-align:center;padding:9px 4px;border-radius:14px;cursor:pointer;font-size:11px;color:var(--sub);}
+.navbar-inner{display:flex;gap:4px;background:var(--glass);border:1px solid var(--glass-brd);backdrop-filter:blur(20px);border-radius:20px;padding:6px;max-width:500px;width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.navbar-inner::-webkit-scrollbar{display:none;}
+.nav-btn{flex:0 0 auto;min-width:74px;text-align:center;padding:9px 6px;border-radius:14px;cursor:pointer;font-size:11px;white-space:nowrap;color:var(--sub);}
 .nav-btn.active{background:linear-gradient(120deg,var(--accent1),var(--accent2));color:#0b0e17;font-weight:600;}
 .nav-btn .ic{display:block;line-height:0;margin-bottom:2px;}
 .nav-btn .ic .icn{width:19px;height:19px;}
@@ -177,6 +178,36 @@ select option{background:var(--bg1);color:var(--text);}
       </div>
       <div class="section-title">Progression par exercice</div>
       <div id="repProgress"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
+      <div class="section-title" style="margin-top:22px;">Graphiques par exercice</div>
+      <div id="repCharts"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
+    </div>
+  </div>
+
+  <!-- CATALOGUE -->
+  <div class="view" id="view-catalogue">
+    <div class="glass">
+      <h2 style="margin-top:0;">Catalogue</h2>
+      <p style="color:var(--sub);font-size:13px;margin:0 0 10px;">Compose ta séance : 6 exercices, 3 zones, 2 exercices par zone.</p>
+      <div id="compSummary" style="font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <select id="catZone" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:8px;color:var(--text);"></select>
+        <select id="catEquip" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:8px;color:var(--text);"></select>
+      </div>
+      <div id="catList"></div>
+      <button class="btn btn-primary" id="catLaunch" style="width:100%;margin-top:14px;" disabled>Lancer la séance composée</button>
+      <button class="btn btn-ghost" id="catClear" style="width:100%;margin-top:8px;">Vider la sélection</button>
+      <button class="btn btn-ghost" id="catAddToggle" style="width:100%;margin-top:8px;">+ Ajouter un exercice au catalogue</button>
+      <div id="catAddForm" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--glass-brd);border-radius:14px;">
+        <input id="cxName" placeholder="Nom de l'exercice" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <select id="cxZone" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;"></select>
+        <input id="cxEquip" list="equipList" placeholder="Matériel (ex. Machine, Haltères)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <datalist id="equipList"></datalist>
+        <input id="cxSets" type="number" placeholder="Nombre de séries (ex. 3)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <select id="cxType" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;"><option value="reps">Répétitions</option><option value="sec">Chrono (secondes)</option></select>
+        <input id="cxRange" placeholder="Fourchette (ex. 10–15)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <input id="cxDur" type="number" placeholder="Durée par série en secondes (si chrono)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <button class="btn btn-primary" id="cxSave" style="width:100%;">Enregistrer dans le catalogue</button>
+      </div>
     </div>
   </div>
 
@@ -316,6 +347,7 @@ select option{background:var(--bg1);color:var(--text);}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 const DEFAULT_TEMPLATES = {
   t_pec:{name:"Pectoraux + Triceps + Abdos", ex:[
@@ -359,6 +391,7 @@ const DAY_ORDER=[1,2,3,4,5,6,0];
 const ICONS = {
   sun:'<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></svg>',
   moon:'<svg class="icn" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>',
+  grid:'<svg class="icn" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
   home:'<svg class="icn" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg>',
   dumbbell:'<svg class="icn" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>',
   clock:'<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>',
@@ -476,14 +509,21 @@ if("serviceWorker" in navigator){
 let PROG = loadProgramData();
 
 function loadSessions(){ try{return JSON.parse(localStorage.getItem(LS_KEY))||[];}catch(e){return [];} }
-function saveSessions(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+function saveSessions(s){
+  const prev=loadSessions();
+  s.forEach(x=>{ if(!x.id) x.id=crypto.randomUUID(); });
+  localStorage.setItem(LS_KEY, JSON.stringify(s));
+  const removed=prev.filter(p=>p.id && !s.some(x=>x.id===p.id)).map(p=>p.id);
+  if(currentUser && removed.length) sb.from("sessions").delete().in("id",removed).then(r=>{ if(r.error) console.warn(r.error); });
+  pushSessions(s);
+}
 function loadSettings(){
   try{ return JSON.parse(localStorage.getItem(LS_SET)) || defaultSettings(); }catch(e){ return defaultSettings(); }
 }
 function defaultSettings(){
   return {theme:"dark", appName:"TOJI", bgImage:null, notifOn:false, notifTimes:{1:"19:00",2:"19:00",4:"19:00",6:"10:00"}, notifEnabled:{1:true,2:true,4:true,6:true}, restSeconds:60};
 }
-function saveSettings(s){ localStorage.setItem(LS_SET, JSON.stringify(s)); }
+function saveSettings(s){ localStorage.setItem(LS_SET, JSON.stringify(s)); pushSettings(); }
 
 let settings = loadSettings();
 let today = new Date().getDay();
@@ -523,8 +563,176 @@ document.getElementById("restSecondsInput").onchange=(e)=>{
   settings.restSeconds = parseInt(e.target.value)||60; saveSettings(settings);
 };
 
+// CATALOGUE
+let CATALOG=[];
+const BASE_CATALOG=[
+  {n:"Pompes classiques",zone:"Pectoraux",equip:"Poids du corps",sets:4,range:"10–20"},
+  {n:"Pompes pieds surélevés",zone:"Pectoraux",equip:"Poids du corps",sets:4,range:"8–15"},
+  {n:"Pompes diamant",zone:"Pectoraux",equip:"Poids du corps",sets:3,range:"8–15"},
+  {n:"Développé couché",zone:"Pectoraux",equip:"Barre",sets:4,range:"8–12"},
+  {n:"Développé haltères",zone:"Pectoraux",equip:"Haltères",sets:4,range:"8–12"},
+  {n:"Écarté haltères",zone:"Pectoraux",equip:"Haltères",sets:3,range:"10–15"},
+  {n:"Pec deck",zone:"Pectoraux",equip:"Machine",sets:3,range:"10–15"},
+  {n:"Tractions",zone:"Dos",equip:"Poids du corps",sets:4,range:"5–10"},
+  {n:"Superman",zone:"Dos",equip:"Poids du corps",sets:3,range:"12–15"},
+  {n:"Rowing haltère",zone:"Dos",equip:"Haltères",sets:4,range:"8–12"},
+  {n:"Rowing sac à dos",zone:"Dos",equip:"Sac à dos",sets:3,range:"10–15"},
+  {n:"Tirage élastique",zone:"Dos",equip:"Élastique",sets:3,range:"12–15"},
+  {n:"Tirage poulie",zone:"Dos",equip:"Machine",sets:3,range:"10–12"},
+  {n:"Pike push-ups",zone:"Épaules",equip:"Poids du corps",sets:3,range:"8–12"},
+  {n:"Développé militaire",zone:"Épaules",equip:"Haltères",sets:4,range:"8–12"},
+  {n:"Élévations latérales",zone:"Épaules",equip:"Haltères",sets:3,range:"12–15"},
+  {n:"Élévations frontales",zone:"Épaules",equip:"Haltères",sets:3,range:"10–15"},
+  {n:"Rotations externes",zone:"Épaules",equip:"Élastique",sets:3,range:"12–15"},
+  {n:"Dips sur chaise",zone:"Bras",equip:"Poids du corps",sets:3,range:"8–15"},
+  {n:"Curl biceps",zone:"Bras",equip:"Haltères",sets:3,range:"10–12"},
+  {n:"Curl marteau",zone:"Bras",equip:"Haltères",sets:3,range:"10–12"},
+  {n:"Extension triceps",zone:"Bras",equip:"Haltères",sets:3,range:"10–15"},
+  {n:"Curl barre",zone:"Bras",equip:"Barre",sets:3,range:"8–12"},
+  {n:"Squats",zone:"Jambes",equip:"Poids du corps",sets:4,range:"12–20"},
+  {n:"Fentes avant",zone:"Jambes",equip:"Poids du corps",sets:3,range:"10–15/jambe"},
+  {n:"Squats bulgares",zone:"Jambes",equip:"Poids du corps",sets:3,range:"8–12/jambe"},
+  {n:"Soulevé de terre roumain",zone:"Jambes",equip:"Haltères",sets:4,range:"8–12"},
+  {n:"Hip thrust",zone:"Jambes",equip:"Poids du corps",sets:3,range:"12–15"},
+  {n:"Mollets debout",zone:"Jambes",equip:"Poids du corps",sets:4,range:"15–25"},
+  {n:"Crunchs",zone:"Abdos",equip:"Poids du corps",sets:3,range:"15–25"},
+  {n:"Relevé de jambes",zone:"Abdos",equip:"Poids du corps",sets:3,range:"10–15"},
+  {n:"Gainage",zone:"Abdos",equip:"Poids du corps",sets:3,range:"30–60 sec",timed:true,dur:45},
+  {n:"Gainage latéral",zone:"Abdos",equip:"Poids du corps",sets:3,range:"30–45 sec/côté",timed:true,dur:30},
+  {n:"Mountain climbers",zone:"Abdos",equip:"Poids du corps",sets:3,range:"30–45 sec",timed:true,dur:30},
+  {n:"Russian twist",zone:"Abdos",equip:"Haltères",sets:3,range:"20 par côté"},
+  {n:"Développé machine",zone:"Pectoraux",equip:"Machine",sets:4,range:"8–12"},
+  {n:"Pec deck inversé",zone:"Épaules",equip:"Machine",sets:3,range:"12–15"},
+  {n:"Développé épaules machine",zone:"Épaules",equip:"Machine",sets:3,range:"10–12"},
+  {n:"Tirage vertical",zone:"Dos",equip:"Machine",sets:4,range:"10–12"},
+  {n:"Rowing assis machine",zone:"Dos",equip:"Machine",sets:3,range:"10–12"},
+  {n:"Curl machine",zone:"Bras",equip:"Machine",sets:3,range:"10–12"},
+  {n:"Extension triceps poulie",zone:"Bras",equip:"Machine",sets:3,range:"10–15"},
+  {n:"Presse à cuisses",zone:"Jambes",equip:"Machine",sets:4,range:"10–15"},
+  {n:"Leg curl",zone:"Jambes",equip:"Machine",sets:3,range:"10–15"},
+  {n:"Leg extension",zone:"Jambes",equip:"Machine",sets:3,range:"12–15"},
+  {n:"Abduction hanche machine",zone:"Jambes",equip:"Machine",sets:3,range:"15–20"},
+  {n:"Adduction hanche machine",zone:"Jambes",equip:"Machine",sets:3,range:"15–20"},
+  {n:"Mollets à la machine",zone:"Jambes",equip:"Machine",sets:4,range:"12–20"},
+  {n:"Crunch machine",zone:"Abdos",equip:"Machine",sets:3,range:"12–15"},
+  {n:"Rotation du tronc machine",zone:"Abdos",equip:"Machine",sets:3,range:"12–15"}
+];
+const LS_CUSTOM="toji_custom_ex";
+function loadCustom(){ try{ return JSON.parse(localStorage.getItem(LS_CUSTOM))||[]; }catch(e){ return []; } }
+function rebuildCatalog(){ CATALOG=BASE_CATALOG.concat(loadCustom()); }
+rebuildCatalog();
+let composed=[];
+let catZoneF="All", catEquipF="All";
+const ZONES_ORDER=["Pectoraux","Dos","Épaules","Bras","Jambes","Abdos"];
+function zoneCount(z){ return composed.filter(e=>e.zone===z).length; }
+function zonesUsed(){ return [...new Set(composed.map(e=>e.zone))]; }
+function canAdd(ex){
+  if(composed.length>=6) return false;
+  if(composed.some(e=>e.n===ex.n)) return false;
+  if(zoneCount(ex.zone)>=2) return false;
+  return zonesUsed().includes(ex.zone) || zonesUsed().length<3;
+}
+function isValidComp(){
+  const z=zonesUsed();
+  return composed.length===6 && z.length===3 && z.every(zz=>zoneCount(zz)===2);
+}
+// Formulaire d'ajout d'exercice perso
+document.getElementById("catAddToggle").onclick=()=>{
+  const f=document.getElementById("catAddForm");
+  f.style.display = f.style.display==="none" ? "block" : "none";
+};
+document.getElementById("cxSave").onclick=()=>{
+  const name=document.getElementById("cxName").value.trim();
+  const zone=document.getElementById("cxZone").value;
+  const equip=document.getElementById("cxEquip").value.trim();
+  const sets=parseInt(document.getElementById("cxSets").value)||3;
+  const isSec=document.getElementById("cxType").value==="sec";
+  let range=document.getElementById("cxRange").value.trim();
+  const dur=parseInt(document.getElementById("cxDur").value)||30;
+  if(!name){ alert("Donne un nom à l'exercice."); return; }
+  if(!equip){ alert("Indique le matériel (ex. Poids du corps, Machine)."); return; }
+  if(CATALOG.some(e=>e.n.toLowerCase()===name.toLowerCase())){ alert("Cet exercice existe déjà dans le catalogue."); return; }
+  if(!range) range = isSec ? dur+" sec" : "8–12";
+  const ex={n:name,zone:zone,equip:equip,sets:sets,range:range,custom:true};
+  if(isSec){ ex.timed=true; ex.dur=dur; }
+  const list=loadCustom(); list.push(ex);
+  localStorage.setItem(LS_CUSTOM, JSON.stringify(list)); pushSettings();
+  rebuildCatalog();
+  ["cxName","cxEquip","cxRange","cxDur"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("cxSets").value="";
+  document.getElementById("catAddForm").style.display="none";
+  renderCatalogue();
+};
+function refreshEquipOptions(){
+  const current=catEquipF;
+  const equips=[...new Set(CATALOG.map(e=>e.equip))];
+  document.getElementById("catEquip").innerHTML='<option value="All">Tout matériel</option>'+equips.map(q=>`<option value="${q}">${q}</option>`).join("");
+  document.getElementById("catEquip").value = equips.includes(current)||current==="All" ? current : "All";
+  catEquipF = document.getElementById("catEquip").value;
+  document.getElementById("equipList").innerHTML = equips.map(q=>`<option value="${q}">`).join("");
+  document.getElementById("cxZone").innerHTML = ZONES_ORDER.map(z=>`<option value="${z}">${z}</option>`).join("");
+}
+
+function renderCatalogue(){
+  const zSel=document.getElementById("catZone"), eSel=document.getElementById("catEquip");
+  if(!zSel.options.length){
+    zSel.innerHTML='<option value="All">Toutes les zones</option>'+ZONES_ORDER.map(z=>`<option value="${z}">${z}</option>`).join("");
+    zSel.onchange=()=>{ catZoneF=zSel.value; renderCatalogue(); };
+    eSel.onchange=()=>{ catEquipF=eSel.value; renderCatalogue(); };
+    document.getElementById("catLaunch").onclick=()=>{
+      if(!isValidComp()) return;
+      const day={name:"Composée — "+zonesUsed().join(" + "), ex:composed.map(e=>({n:e.n,sets:e.sets,range:e.range,timed:!!e.timed,dur:e.dur||0}))};
+      composed=[];
+      buildSession(null,null,day);
+      showView("session");
+    };
+    document.getElementById("catClear").onclick=()=>{ composed=[]; renderCatalogue(); };
+  }
+  refreshEquipOptions();
+  const z=zonesUsed();
+  const breakdown=ZONES_ORDER.filter(zz=>zoneCount(zz)>0).map(zz=>`${zz} ${zoneCount(zz)}/2`).join(" · ");
+  let msg;
+  if(isValidComp()) msg='<span class="up">✓ Séance prête : 3 zones, 2 exercices par zone.</span>';
+  else if(!composed.length) msg='<span style="color:var(--sub)">Ajoute 6 exercices pour composer ta séance.</span>';
+  else msg=`<span style="color:var(--sub)">Sélection ${composed.length}/6 — ${breakdown}. ${z.length<3?"Il faut "+(3-z.length)+" zone(s) de plus. ":""}${composed.length<6?"":""}</span>`;
+  document.getElementById("compSummary").innerHTML=msg;
+  document.getElementById("catLaunch").disabled=!isValidComp();
+
+  const list=CATALOG.filter(e=>(catZoneF==="All"||e.zone===catZoneF)&&(catEquipF==="All"||e.equip===catEquipF));
+  document.getElementById("catList").innerHTML=list.map(ex=>{
+    const inSel=composed.some(e=>e.n===ex.n);
+    const ok=inSel||canAdd(ex);
+    const btn=inSel
+      ? `<button class="timer-btn" data-remove="${ex.n}">Retirer</button>`
+      : `<button class="timer-btn" data-add="${ex.n}" ${ok?"":"disabled style=\"opacity:.35;\""}>Ajouter</button>`;
+    const del = ex.custom ? `<button class="timer-btn" data-del="${ex.n}" style="color:#f87171;margin-left:6px;">Suppr.</button>` : "";
+    return `<div class="hist-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div style="min-width:0;"><b>${ex.n}${ex.custom?' <span style="font-size:10px;color:var(--accent1);font-weight:400;">perso</span>':""}</b><div>${ex.zone} · ${ex.equip} · ${ex.sets} séries · ${ex.range}</div></div><div style="display:flex;align-items:center;">${btn}${del}</div></div>`;
+  }).join("") || '<p style="color:var(--sub);font-size:13px;">Aucun exercice pour ce filtre.</p>';
+
+  document.querySelectorAll("#catList [data-add]").forEach(b=>{
+    b.onclick=()=>{
+      const ex=CATALOG.find(e=>e.n===b.dataset.add);
+      if(ex && canAdd(ex)){ composed.push(ex); renderCatalogue(); }
+    };
+  });
+  document.querySelectorAll("#catList [data-del]").forEach(b=>{
+    b.onclick=()=>{
+      if(!confirm("Supprimer cet exercice perso du catalogue ?")) return;
+      const name=b.dataset.del;
+      localStorage.setItem(LS_CUSTOM, JSON.stringify(loadCustom().filter(e=>e.n!==name))); pushSettings();
+      rebuildCatalog();
+      composed=composed.filter(e=>e.n!==name);
+      renderCatalogue();
+    };
+  });
+  document.querySelectorAll("#catList [data-remove]").forEach(b=>{
+    b.onclick=()=>{ composed=composed.filter(e=>e.n!==b.dataset.remove); renderCatalogue(); };
+  });
+}
+
 // NAV
-const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"history",ic:ICONS.clock,label:"Historique"},{id:"report",ic:ICONS.chart,label:"Rapport"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
+const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"catalogue",ic:ICONS.grid,label:"Catalogue"},{id:"history",ic:ICONS.clock,label:"Historique"},{id:"report",ic:ICONS.chart,label:"Rapport"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
 const navbar=document.getElementById("navbar");
 NAVS.forEach(n=>{
   const b=document.createElement("div"); b.className="nav-btn"+(n.id==="home"?" active":""); b.dataset.v=n.id;
@@ -537,7 +745,223 @@ function showView(id){
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.v===id));
   if(id==="history") renderHistory();
   if(id==="report") renderReport();
+  if(id==="catalogue") renderCatalogue();
 }
+
+// COMPTE ET SYNCHRONISATION (Supabase)
+const SUPA_URL="https://ucscezwkwfcbigocozai.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjc2Nlendrd2ZjYmlnb2NvemFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0ODYwOTIsImV4cCI6MjEwNzA2MjA5Mn0.nReO6CaPRJWJXQd6wI6GrFoApsOEci7caVOf7f6UdFE";
+const sb = (window.supabase) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+let currentUser=null;
+
+function authEl(){ return document.getElementById("authScreen"); }
+function showAuth(msg){
+  authEl().classList.add("active");
+  document.getElementById("authMsg").textContent = msg || "";
+}
+function hideAuth(){ authEl().classList.remove("active"); }
+
+async function pushSessions(s){
+  if(!currentUser || !sb || !s.length) return;
+  const rows=s.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip}));
+  const {error}=await sb.from("sessions").upsert(rows);
+  if(error) console.warn("sync sessions:", error);
+}
+async function pushSettings(){
+  if(!currentUser || !sb) return;
+  const data={...loadSettings(), customEx: loadCustom()};
+  const {error}=await sb.from("settings").upsert({data:data}, {onConflict:"user_id"});
+  if(error) console.warn("sync settings:", error);
+}
+async function pullFromCloud(){
+  // 1. Les séances du téléphone sont envoyées dans le compte (sans rien supprimer)
+  const local=loadSessions();
+  local.forEach(x=>{ if(!x.id) x.id=crypto.randomUUID(); });
+  localStorage.setItem(LS_KEY, JSON.stringify(local));
+  await pushSessions(local);
+  // 2. Puis le téléphone reprend la version du compte
+  const {data:rows, error}=await sb.from("sessions").select("*").order("date");
+  if(!error && rows){
+    const mapped=rows.map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries, skip:r.skip}));
+    localStorage.setItem(LS_KEY, JSON.stringify(mapped));
+  }
+  // 3. Réglages et exercices perso
+  const {data:setRow}=await sb.from("settings").select("data").maybeSingle();
+  if(setRow && setRow.data && Object.keys(setRow.data).length){
+    const cloud=setRow.data;
+    if(Array.isArray(cloud.customEx)) localStorage.setItem(LS_CUSTOM, JSON.stringify(cloud.customEx));
+    const {customEx, ...rest}=cloud;
+    if(Object.keys(rest).length) localStorage.setItem(LS_SET, JSON.stringify(rest));
+  } else {
+    await pushSettings();
+  }
+  rebuildCatalog();
+}
+function getUsername(user){ return (user.user_metadata && user.user_metadata.username) || (user.email||"").split("@")[0]; }
+function showWelcome(user){
+  const key="toji_welcome_"+user.id;
+  if(localStorage.getItem(key)) return;
+  document.getElementById("welcomeTitle").textContent="Bienvenue "+getUsername(user)+" !";
+  document.getElementById("welcomeModal").classList.add("active");
+  document.getElementById("welcomeBtn").onclick=()=>{
+    localStorage.setItem(key,"1");
+    document.getElementById("welcomeModal").classList.remove("active");
+  };
+}
+async function afterLogin(user){
+  currentUser=user;
+  hideAuth();
+  await pullFromCloud();
+  renderHome();
+  const acc=document.getElementById("accountInfo");
+  if(acc) acc.textContent="Connecté : "+getUsername(user)+" ("+user.email+")";
+  showWelcome(user);
+}
+let authMode="login";
+function setAuthMode(m){
+  authMode=m;
+  document.getElementById("authUserWrap").style.display = (m==="signup")?"block":"none";
+  document.getElementById("authEmail").style.display = (m==="newpass")?"none":"block";
+  document.getElementById("authPass").style.display = (m==="reset")?"none":"block";
+  document.getElementById("authPass").placeholder = (m==="newpass") ? "Nouveau mot de passe (6 caractères min.)" : "Mot de passe (6 caractères min.)";
+  document.getElementById("authForgot").style.display = (m==="login")?"block":"none";
+  const map={
+    login:["Connexion à TOJI","Se connecter","Créer un compte"],
+    signup:["Créer ton compte","Créer mon compte","J'ai déjà un compte"],
+    reset:["Mot de passe oublié","Envoyer le lien","Retour"],
+    newpass:["Nouveau mot de passe","Enregistrer",""]
+  };
+  document.getElementById("authTitle").textContent=map[m][0];
+  document.getElementById("authPrimary").textContent=map[m][1];
+  document.getElementById("authGhost").textContent=map[m][2];
+  document.getElementById("authGhost").style.display = (m==="newpass")?"none":"block";
+  document.getElementById("authMsg").textContent="";
+}
+function onPrimary(){
+  if(authMode==="login") doLogin();
+  else if(authMode==="signup") doSignUp();
+  else if(authMode==="reset") doReset();
+  else doNewPass();
+}
+function onGhost(){ setAuthMode(authMode==="login" ? "signup" : "login"); }
+async function doSignUp(){
+  const user=document.getElementById("authUser").value.trim();
+  const email=document.getElementById("authEmail").value.trim();
+  const pass=document.getElementById("authPass").value;
+  if(user.length<2){ showAuth("Choisis un pseudo d'au moins 2 caractères."); return; }
+  if(!email||pass.length<6){ showAuth("Entre un email et un mot de passe d'au moins 6 caractères."); return; }
+  showAuth("Création du compte...");
+  const {data,error}=await sb.auth.signUp({email:email, password:pass, options:{data:{username:user}}});
+  if(error){ showAuth("Erreur : "+error.message); return; }
+  if(data.session) afterLogin(data.session.user);
+  else showAuth("Compte créé. Connecte-toi maintenant.");
+}
+async function doReset(){
+  const email=document.getElementById("authEmail").value.trim();
+  if(!email){ showAuth("Entre ton email."); return; }
+  showAuth("Envoi...");
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:"https://eros-99.github.io/Toji-app/"});
+  if(error) showAuth("Erreur : "+error.message);
+  else showAuth("Si cet email existe, un lien vient d'être envoyé. Vérifie aussi tes spams.");
+}
+async function doNewPass(){
+  const pass=document.getElementById("authPass").value;
+  if(pass.length<6){ showAuth("6 caractères minimum."); return; }
+  showAuth("Enregistrement...");
+  const {error}=await sb.auth.updateUser({password:pass});
+  if(error){ showAuth("Erreur : "+error.message); return; }
+  history.replaceState(null,"",location.pathname);
+  const {data}=await sb.auth.getUser();
+  afterLogin(data.user);
+}
+async function doLogin(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pass=document.getElementById("authPass").value;
+  showAuth("Connexion...");
+  const {data,error}=await sb.auth.signInWithPassword({email:email, password:pass});
+  if(error){ showAuth("Erreur : "+error.message); return; }
+  afterLogin(data.user);
+}
+async function doLogout(){
+  if(!confirm("Se déconnecter ? Tes données restent dans ton compte.")) return;
+  await sb.auth.signOut();
+  currentUser=null;
+  localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_CUSTOM); localStorage.removeItem(LS_SET);
+  rebuildCatalog(); renderHome();
+  showAuth("Déconnecté.");
+}
+function exportBackup(){
+  const data={exportedAt:new Date().toISOString(), sessions:loadSessions(), settings:loadSettings(), customEx:loadCustom()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="toji-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// Écran de connexion
+document.body.insertAdjacentHTML("beforeend", `
+<div class="modal-bg" id="authScreen" style="background:#0b0e17;backdrop-filter:none;z-index:300;">
+  <div class="glass modal" style="text-align:center;">
+    <h3 style="margin-top:0;" id="authTitle">Connexion à TOJI</h3>
+    <p style="color:var(--sub);font-size:13px;">Tes séances sont sauvegardées dans ton compte et accessibles partout.</p>
+    <div id="authUserWrap" style="display:none;"><input id="authUser" type="text" placeholder="Ton pseudo (affiché dans l'app)" style="width:100%;margin:6px 0;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);box-sizing:border-box;font-size:15px;"></div>
+    <input id="authEmail" type="email" placeholder="Email" style="width:100%;margin:6px 0;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);box-sizing:border-box;font-size:15px;">
+    <input id="authPass" type="password" placeholder="Mot de passe (6 caractères min.)" style="width:100%;margin:6px 0;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);box-sizing:border-box;font-size:15px;">
+    <div id="authForgot" style="display:none;margin:4px 0 8px;"><button class="btn btn-ghost" id="forgotBtn" style="width:100%;font-size:13px;">Mot de passe oublié ?</button></div>
+    <div id="authMsg" style="color:var(--sub);font-size:13px;min-height:18px;margin:6px 0;"></div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" id="authGhost" style="flex:1;"></button>
+      <button class="btn btn-primary" id="authPrimary" style="flex:1;"></button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="welcomeModal" style="z-index:250;">
+  <div class="glass modal" style="text-align:center;">
+    <h3 style="margin-top:0;" id="welcomeTitle">Bienvenue !</h3>
+    <p style="color:var(--sub);font-size:14px;line-height:1.5;">TOJI te permet de suivre tes séances, de créer les tiennes et de voir ta progression.</p>
+    <p style="color:var(--sub);font-size:14px;line-height:1.5;">Accueil : ta séance du jour. Séance : la séance à remplir. Catalogue : compose ta propre séance (3 zones, 2 exercices par zone). Historique et Rapport : ta progression.</p>
+    <button class="btn btn-primary" id="welcomeBtn" style="width:100%;margin-top:10px;">C'est parti</button>
+  </div>
+</div>`);
+document.getElementById("authPrimary").onclick=()=>onPrimary();
+document.getElementById("authGhost").onclick=()=>onGhost();
+document.getElementById("forgotBtn").onclick=()=>setAuthMode("reset");
+setAuthMode("login");
+
+// Compte et sauvegarde dans Réglages
+document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
+  <div class="section-title" style="margin-top:22px;">Compte et sauvegarde</div>
+  <p id="accountInfo" style="color:var(--sub);font-size:13px;">Non connecté</p>
+  <button class="btn btn-ghost" id="exportBtn" style="width:100%;margin-top:8px;">Exporter mes données (sauvegarde)</button>
+  <button class="btn btn-ghost" id="logoutBtn" style="width:100%;margin-top:8px;">Se déconnecter</button>`);
+document.getElementById("exportBtn").onclick=exportBackup;
+document.getElementById("logoutBtn").onclick=doLogout;
+
+// Démarrage : si déjà connecté, on synchronise ; sinon on affiche la connexion
+if(sb){
+  sb.auth.getSession().then(({data})=>{
+    if(data.session) afterLogin(data.session.user);
+    else showAuth("");
+  });
+} else {
+  console.warn("Supabase indisponible : mode hors ligne");
+}
+
+// GLISSER ENTRE LES ONGLETS
+let tStartX=0, tStartY=0, tStartEl=null;
+document.addEventListener("touchstart",e=>{ tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tStartEl=e.target; },{passive:true});
+document.addEventListener("touchend",e=>{
+  if(document.querySelector(".modal-bg.active")) return;
+  if(tStartEl && tStartEl.closest && tStartEl.closest("input,textarea,select,[data-noswipe]")) return;
+  const dx=e.changedTouches[0].clientX-tStartX, dy=e.changedTouches[0].clientY-tStartY;
+  if(Math.abs(dx)<70 || Math.abs(dx)<Math.abs(dy)*1.5) return;
+  const ids=NAVS.map(n=>n.id);
+  const cur=ids.find(id=>document.getElementById("view-"+id).classList.contains("active"));
+  const idx=ids.indexOf(cur)+(dx<0?1:-1);
+  if(idx<0||idx>=ids.length) return;
+  showView(ids[idx]);
+},{passive:true});
 
 // HOME
 function checkMissedReminder(){
@@ -675,12 +1099,12 @@ document.getElementById("catchupImportBtn").onclick=()=>{
   showView("home"); renderHome();
 };
 
-function buildSession(overrideDow, overrideDate){
+function buildSession(overrideDow, overrideDate, customDay){
   const dow = overrideDow!=null ? overrideDow : today;
   sessionDow = overrideDow!=null ? overrideDow : null;
   sessionDateOverride = overrideDate || null;
-  const day=getDayProgram(dow); sessionDay=day; currentSessionEntries=[];
-  document.getElementById("sessDayPill").textContent = overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : DAY_NAMES[dow];
+  const day=customDay || getDayProgram(dow); sessionDay=day; currentSessionEntries=[];
+  document.getElementById("sessDayPill").textContent = customDay ? "Composée" : (overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : DAY_NAMES[dow]);
   document.getElementById("sessTitle").textContent=day.name;
   const list=document.getElementById("sessList"); list.innerHTML="";
   day.ex.forEach((ex,i)=>{
@@ -735,26 +1159,24 @@ function startCountdown(){
     if(timerSeconds<=0){
       clearInterval(timerInterval); beep();
       document.getElementById("timerModal").classList.remove("active");
-      if(timerTarget){
-        const [i,s]=timerTarget.split("-").map(Number);
-        const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
-        if(inp && !inp.value) inp.value = timerInitial;
-        if(isLastSet(i,s)) showFinishConfirm();
-      }
+      afterTimedSet(timerTarget);
     }
   },1000);
 }
 document.getElementById("timerClose").onclick=()=>{
   clearInterval(timerInterval);
   document.getElementById("timerModal").classList.remove("active");
-  if(timerTarget){
-    const [i,s]=timerTarget.split("-").map(Number);
-    const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
-    if(inp && !inp.value) inp.value = timerInitial;
-    if(isLastSet(i,s)) showFinishConfirm();
-  }
-  timerTarget=null;
+  afterTimedSet(timerTarget);
 };
+function afterTimedSet(target){
+  if(!target) return;
+  const [i,s]=target.split("-").map(Number);
+  timerTarget=null;
+  const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
+  if(inp && !inp.value) inp.value = timerInitial;
+  if(isLastSet(i,s)){ showFinishConfirm(); }
+  else { openTimer(settings.restSeconds||60, null, "REPOS"); }
+}
 document.getElementById("timerPlus").onclick=()=>{ timerSeconds+=5; timerInitial+=5; document.getElementById("timerNum").textContent=timerSeconds; };
 document.getElementById("timerMinus").onclick=()=>{ timerSeconds=Math.max(5,timerSeconds-5); timerInitial=Math.max(5,timerInitial-5); document.getElementById("timerNum").textContent=timerSeconds; };
 document.getElementById("timerPause").onclick=()=>{
@@ -794,7 +1216,50 @@ function renderHistory(){
 }
 
 // REPORT
+function renderExerciseCharts(){
+  const el=document.getElementById("repCharts");
+  const sessions=loadSessions().filter(s=>!s.skip).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const byEx={};
+  sessions.forEach(sess=>{
+    sess.entries.forEach(e=>{
+      const vals=e.values.filter(v=>v!=null);
+      if(!vals.length) return;
+      if(!byEx[e.name]) byEx[e.name]=[];
+      byEx[e.name].push({date:new Date(sess.date), max:Math.max(...vals)});
+    });
+  });
+  const names=Object.keys(byEx);
+  if(!names.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p>'; return; }
+  const fmtDate=d=>String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");
+  el.innerHTML=names.map(name=>{
+    const pts=byEx[name].slice(-10);
+    const unit=name.toLowerCase().includes("gainage")?"s":"";
+    const W=300,H=130,padT=18,padB=22,padX=8;
+    const maxV=Math.max(...pts.map(p=>p.max),1);
+    const slot=(W-padX*2)/pts.length;
+    const bw=Math.min(28,slot*0.6);
+    const bars=pts.map((p,i)=>{
+      const h=((H-padT-padB)*p.max)/maxV;
+      const x=padX+i*slot+(slot-bw)/2;
+      const y=H-padB-h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="var(--accent1)" opacity="${i===pts.length-1?1:0.55}"/>`+
+        `<text x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--text)">${p.max}${unit}</text>`+
+        `<text x="${(x+bw/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--sub)">${fmtDate(p.date)}</text>`;
+    }).join("");
+    const first=pts[0].max, last=pts[pts.length-1].max, delta=last-first;
+    const trend = pts.length<2 ? "" : delta>0?`<span class="up">▲ +${delta}${unit}</span>`:delta<0?`<span class="down">▼ ${delta}${unit}</span>`:`<span style="color:var(--sub)">= stable</span>`;
+    return `<div style="margin-bottom:18px;padding:12px;border:1px solid var(--glass-brd);border-radius:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <b style="font-size:14px;">${name}</b><span style="font-size:12px;">${trend}</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">${bars}</svg>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px;">Meilleure série par séance, ${pts.length} dernière(s)</div>
+    </div>`;
+  }).join("");
+}
+
 function renderReport(){
+  renderExerciseCharts();
   const sessions=loadSessions();
   const weekStart=getWeekStart();
   const thisWeekAll=sessions.filter(s=>new Date(s.date)>=weekStart);
