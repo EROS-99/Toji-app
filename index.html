@@ -847,6 +847,19 @@ function showWelcome(user){
 async function afterLogin(user, isNew){
   currentUser=user;
   hideAuth();
+  // Les données locales ne doivent jamais passer dans un autre compte
+  const owner=localStorage.getItem("toji_owner");
+  if(owner!==user.id){
+    let accountHasData=false;
+    if(!owner && sb){
+      const {count}=await sb.from("sessions").select("id",{count:"exact",head:true});
+      accountHasData = (count||0)>0;
+    }
+    if(owner || accountHasData){
+      localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_CUSTOM); localStorage.removeItem(LS_SET);
+    }
+    localStorage.setItem("toji_owner", user.id);
+  }
   await pullFromCloud();
   renderHome();
   const acc=document.getElementById("accountInfo");
