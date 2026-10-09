@@ -217,6 +217,28 @@ select option{background:var(--bg1);color:var(--text);}
     </div>
   </div>
 
+  <!-- DÉFIS -->
+  <div class="view" id="view-defis">
+    <div class="glass" style="margin-bottom:14px;">
+      <h2 style="margin-top:0;">Envoyer un défi</h2>
+      <input id="dfUser" placeholder="Pseudo exact de ton ami" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+      <input id="dfTitle" placeholder="Titre du défi (ex. Tour Mike Tyson)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+      <select id="dfFormat" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+        <option value="total">Total de reps (le plus de reps au total)</option>
+        <option value="max">Maximum en une série</option>
+        <option value="pyramid">Pyramide descendante (20, 19, 18... jusqu'à 1)</option>
+        <option value="tours">Tours complets (un tour = un enchaînement)</option>
+      </select>
+      <select id="dfExo" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;"></select>
+      <input id="dfExoName" placeholder="Nom de l'exercice libre" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;;display:none;">
+      <textarea id="dfDesc" placeholder="Description des gestes (ce que ton ami doit faire)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;;min-height:80px;font-family:inherit;"></textarea>
+      <input id="dfLink" type="url" placeholder="Lien de référence (facultatif, https://...)" style="width:100%;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box;">
+      <div id="dfMsg" style="color:var(--sub);font-size:13px;min-height:18px;margin-bottom:6px;"></div>
+      <button class="btn btn-primary" id="dfSend" style="width:100%;">Envoyer le défi</button>
+    </div>
+    <div id="defisList"></div>
+  </div>
+
   <!-- SETTINGS -->
   <div class="view" id="view-settings">
     <div class="glass">
@@ -397,6 +419,7 @@ const DAY_ORDER=[1,2,3,4,5,6,0];
 const ICONS = {
   sun:'<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></svg>',
   moon:'<svg class="icn" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>',
+  flag:'<svg class="icn" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/></svg>',
   grid:'<svg class="icn" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
   home:'<svg class="icn" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg>',
   dumbbell:'<svg class="icn" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>',
@@ -536,12 +559,14 @@ let today = new Date().getDay();
 let currentSessionEntries = [];
 
 function applyTheme(){
+  if(settings.bgImage){ localStorage.setItem("toji_bg", settings.bgImage); delete settings.bgImage; saveSettings(settings); }
   document.documentElement.setAttribute("data-theme", settings.theme==="light"?"light":"dark");
   document.getElementById("themeToggle").innerHTML = settings.theme==="light"?ICONS.sun:ICONS.moon;
   document.getElementById("lightSwitch").checked = settings.theme==="light";
   document.getElementById("brandName").textContent = settings.appName || "TOJI";
   document.title = (settings.appName||"TOJI")+" — Suivi d'entraînement";
-  document.body.style.backgroundImage = settings.bgImage ? `url(${settings.bgImage})` : "";
+  const bg=localStorage.getItem("toji_bg");
+  document.body.style.backgroundImage = bg ? `url(${bg})` : "";
 }
 document.getElementById("appNameInput").oninput=(e)=>{
   settings.appName = e.target.value.trim() || "TOJI"; saveSettings(settings);
@@ -551,12 +576,12 @@ document.getElementById("bgFile").onchange=(e)=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=()=>{
-    settings.bgImage=reader.result; saveSettings(settings); applyTheme();
+    localStorage.setItem("toji_bg", reader.result); applyTheme();
   };
   reader.readAsDataURL(file);
 };
 document.getElementById("bgResetBtn").onclick=()=>{
-  settings.bgImage=null; saveSettings(settings); applyTheme();
+  localStorage.removeItem("toji_bg"); applyTheme();
 };
 document.getElementById("themeToggle").onclick=()=>{
   settings.theme = settings.theme==="light"?"dark":"light"; saveSettings(settings); applyTheme();
@@ -738,7 +763,7 @@ function renderCatalogue(){
 }
 
 // NAV
-const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"catalogue",ic:ICONS.grid,label:"Catalogue"},{id:"history",ic:ICONS.clock,label:"Historique"},{id:"report",ic:ICONS.chart,label:"Rapport"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
+const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"catalogue",ic:ICONS.grid,label:"Catalogue"},{id:"defis",ic:ICONS.flag,label:"Défis"},{id:"history",ic:ICONS.clock,label:"Historique"},{id:"report",ic:ICONS.chart,label:"Rapport"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
 const navbar=document.getElementById("navbar");
 NAVS.forEach(n=>{
   const b=document.createElement("div"); b.className="nav-btn"+(n.id==="home"?" active":""); b.dataset.v=n.id;
@@ -758,6 +783,7 @@ function showView(id){
   if(id==="history") renderHistory();
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
+  if(id==="defis") loadDefis();
 }
 
 // COMPTE ET SYNCHRONISATION (Supabase)
@@ -781,7 +807,8 @@ async function pushSessions(s){
 }
 async function pushSettings(){
   if(!currentUser || !sb) return;
-  const data={...loadSettings(), customEx: loadCustom()};
+  const {bgImage, ...st}=loadSettings();
+  const data={...st, customEx: loadCustom()};
   const {error}=await sb.from("settings").upsert({data:data}, {onConflict:"user_id"});
   if(error) console.warn("sync settings:", error);
 }
@@ -956,6 +983,158 @@ if(sb){
 } else {
   console.warn("Supabase indisponible : mode hors ligne");
 }
+
+// INSTALLATION DE L'APP
+let deferredPrompt=null;
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+function installCardHTML(){
+  return `<div class="installCard glass" style="display:none;margin-bottom:14px;border-color:var(--accent1);text-align:left;">
+    <b style="font-size:14px;">Installer TOJI sur ton téléphone</b>
+    <p class="installTxt" style="color:var(--sub);font-size:13px;line-height:1.5;margin:6px 0 10px;"></p>
+    <button class="btn btn-primary installBtn" style="width:100%;display:none;">Installer l'app</button>
+  </div>`;
+}
+function renderInstallCards(){
+  if(isStandalone) return;
+  let text, showBtn=false;
+  if(isIOS){ text="Sur iPhone : touche le bouton Partager, puis « Sur l'écran d'accueil »."; }
+  else if(deferredPrompt){ text="Accès direct depuis l'écran d'accueil, comme une vraie app."; showBtn=true; }
+  else { text="Dans le menu de ton navigateur (les trois points), touche « Installer l'application » ou « Ajouter à l'écran d'accueil »."; }
+  document.querySelectorAll(".installCard").forEach(c=>{
+    c.style.display="block";
+    c.querySelector(".installTxt").textContent=text;
+    c.querySelector(".installBtn").style.display = showBtn ? "block" : "none";
+  });
+}
+async function installApp(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome}=await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  if(outcome==="accepted") document.querySelectorAll(".installCard").forEach(c=>c.style.display="none");
+  else renderInstallCards();
+}
+window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); deferredPrompt=e; renderInstallCards(); });
+window.addEventListener("appinstalled",()=>{ document.querySelectorAll(".installCard").forEach(c=>c.style.display="none"); });
+document.querySelector("#authScreen .modal").insertAdjacentHTML("afterbegin", installCardHTML());
+document.getElementById("view-home").insertAdjacentHTML("afterbegin", installCardHTML());
+document.querySelectorAll(".installBtn").forEach(b=>b.onclick=installApp);
+renderInstallCards();
+
+// DÉFIS ENTRE AMIS
+const FORMAT_LABEL={total:"Total de reps",max:"Maximum en une série",pyramid:"Pyramide descendante",tours:"Tours complets"};
+let defiNames={};
+function defiMsg(t){ document.getElementById("dfMsg").textContent=t; }
+function fillDefiExos(){
+  const sel=document.getElementById("dfExo");
+  if(sel.options.length) return;
+  sel.innerHTML=CATALOG.map(e=>`<option value="${e.n}">${e.n}</option>`).join("")+'<option value="__libre">Exercice libre (écrit moi-même)</option>';
+  sel.onchange=()=>{ const libre=sel.value==="__libre"; document.getElementById("dfExoName").style.display=libre?"block":"none"; };
+  sel.onchange();
+}
+function nameOfDefi(id){ return id===currentUser.id ? "Toi" : (defiNames[id]||"Un ami"); }
+async function loadDefis(){
+  fillDefiExos();
+  const list=document.getElementById("defisList");
+  if(!sb||!currentUser){ list.innerHTML='<p style="color:var(--sub);font-size:13px;">Connecte-toi pour utiliser les défis.</p>'; return; }
+  const {data,error}=await sb.from("challenges").select("*").order("created_at",{ascending:false});
+  if(error){ list.innerHTML='<p style="color:var(--sub);font-size:13px;">Impossible de charger les défis.</p>'; console.warn(error); return; }
+  const ids=[...new Set(data.flatMap(c=>[c.from_user,c.to_user]))].filter(id=>id!==currentUser.id);
+  defiNames={};
+  if(ids.length){
+    const {data:names}=await sb.rpc("usernames_for",{p_ids:ids});
+    (names||[]).forEach(n=>defiNames[n.user_id]=n.username);
+  }
+  renderDefis(data);
+}
+function defiCard(c){
+  const me=currentUser.id, isSender=c.from_user===me;
+  const other=isSender? nameOfDefi(c.to_user) : nameOfDefi(c.from_user);
+  const myScore= isSender? c.from_score : c.to_score;
+  const otherScore= isSender? c.to_score : c.from_score;
+  const expired = new Date(c.deadline) < new Date() && c.status!=="done";
+  const exo=(c.exercises&&c.exercises[0])||{};
+  const head=`<b>${c.title}</b><div style="color:var(--sub);font-size:12px;margin:2px 0 6px;">${FORMAT_LABEL[c.format]||c.format} · ${isSender?"Envoyé à "+other:"De "+other}</div>
+    <div style="font-size:13px;margin-bottom:6px;"><b>${exo.n||""}</b> ${exo.desc?"— "+exo.desc:""}</div>
+    ${c.reference_link?`<a href="${c.reference_link}" target="_blank" rel="noopener" style="font-size:13px;">Voir la référence</a>`:""}`;
+  let body="";
+  if(c.status==="pending"){
+    body = isSender
+      ? `<p style="color:var(--sub);font-size:13px;margin:8px 0 0;">En attente de la réponse de ${other}.</p>`
+      : `<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-primary" data-acc="${c.id}" style="flex:1;">Accepter</button><button class="btn btn-ghost" data-ref="${c.id}" style="flex:1;">Refuser</button></div>`;
+  } else if(c.status==="refused"){
+    body=`<p style="color:var(--sub);font-size:13px;margin:8px 0 0;">Défi refusé.</p>`;
+  } else if(c.status==="accepted" && expired){
+    body=`<p style="color:#f87171;font-size:13px;margin:8px 0 0;">Délai dépassé, le défi est annulé.</p>`;
+  } else if(c.status==="accepted"){
+    if(myScore==null){
+      body=`<div style="display:flex;gap:8px;margin-top:10px;"><input id="sc${c.id}" type="number" placeholder="Ton score" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);"><button class="btn btn-primary" data-score="${c.id}">Valider</button></div>`;
+    } else {
+      body=`<p style="color:var(--sub);font-size:13px;margin:8px 0 0;">Ton score : ${myScore}. En attente du score de ${other}.</p>`;
+    }
+  } else if(c.status==="done"){
+    let res = myScore>otherScore ? "Tu gagnes !" : myScore<otherScore ? `${other} gagne.` : "Égalité.";
+    body=`<div style="margin-top:8px;font-size:14px;"><b>Toi : ${myScore}</b> · ${other} : ${otherScore}</div><div style="margin-top:4px;color:var(--accent1);font-size:13px;">${res}</div>`;
+  }
+  return `<div class="glass" style="margin-bottom:12px;">${head}${body}</div>`;
+}
+function renderDefis(list){
+  const me=currentUser.id;
+  const sec=(title,items)=> items.length? `<div class="section-title" style="margin:14px 0 8px;">${title}</div>${items.map(defiCard).join("")}` : "";
+  const received=list.filter(c=>c.to_user===me && c.status==="pending");
+  const active=list.filter(c=>c.status==="accepted" && (c.from_user===me||c.to_user===me));
+  const sent=list.filter(c=>c.from_user===me && c.status==="pending");
+  const done=list.filter(c=>c.status==="done" || c.status==="refused");
+  document.getElementById("defisList").innerHTML =
+    sec("Défis reçus", received) + sec("En cours", active) + sec("Envoyés", sent) + sec("Terminés", done) ||
+    '<p style="color:var(--sub);font-size:13px;">Aucun défi pour le moment.</p>';
+  document.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>respondDefi(b.dataset.acc,"accepted"));
+  document.querySelectorAll("[data-ref]").forEach(b=>b.onclick=()=>respondDefi(b.dataset.ref,"refused"));
+  document.querySelectorAll("[data-score]").forEach(b=>b.onclick=()=>submitDefiScore(b.dataset.score));
+}
+async function respondDefi(id,status){
+  const {error}=await sb.from("challenges").update({status:status}).eq("id",id);
+  if(error) alert("Erreur : "+error.message);
+  loadDefis();
+}
+async function submitDefiScore(id){
+  const val=parseInt(document.getElementById("sc"+id).value);
+  if(isNaN(val)){ alert("Entre ton score."); return; }
+  const {data:c,error:e1}=await sb.from("challenges").select("*").eq("id",id).single();
+  if(e1){ alert("Erreur : "+e1.message); return; }
+  const isSender=c.from_user===currentUser.id;
+  const field=isSender?"from_score":"to_score";
+  const otherVal=isSender?c.to_score:c.from_score;
+  const update={[field]:val, status: otherVal!=null ? "done" : "accepted"};
+  const {error}=await sb.from("challenges").update(update).eq("id",id);
+  if(error) alert("Erreur : "+error.message);
+  loadDefis();
+}
+document.getElementById("dfSend").onclick=async()=>{
+  if(!sb||!currentUser){ defiMsg("Connecte-toi d'abord."); return; }
+  const pseudo=document.getElementById("dfUser").value.trim();
+  const title=document.getElementById("dfTitle").value.trim();
+  const format=document.getElementById("dfFormat").value;
+  const sel=document.getElementById("dfExo").value;
+  const exoName= sel==="__libre" ? document.getElementById("dfExoName").value.trim() : sel;
+  const desc=document.getElementById("dfDesc").value.trim();
+  const link=document.getElementById("dfLink").value.trim();
+  if(!pseudo||!title||!exoName){ defiMsg("Pseudo, titre et exercice sont obligatoires."); return; }
+  if(link && !/^https:\/\//.test(link)){ defiMsg("Le lien doit commencer par https://"); return; }
+  defiMsg("Recherche de ton ami...");
+  const {data:found,error:e1}=await sb.rpc("find_user_by_username",{p_name:pseudo});
+  if(e1||!found||!found.length){ defiMsg("Aucun compte avec ce pseudo exact."); return; }
+  if(found[0].user_id===currentUser.id){ defiMsg("Tu ne peux pas te défier toi-même."); return; }
+  const {error:e2}=await sb.from("challenges").insert({
+    from_user:currentUser.id, to_user:found[0].user_id, title:title, format:format,
+    exercises:[{n:exoName, desc:desc}], reference_link: link || null, status:"pending"
+  });
+  if(e2){ defiMsg("Erreur : "+e2.message); return; }
+  ["dfUser","dfTitle","dfDesc","dfLink","dfExoName"].forEach(id=>document.getElementById(id).value="");
+  defiMsg("Défi envoyé à "+found[0].username+" !");
+  loadDefis();
+};
 
 // GLISSER ENTRE LES ONGLETS
 let tStartX=0, tStartY=0, tStartEl=null;
