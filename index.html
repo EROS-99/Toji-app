@@ -303,6 +303,10 @@ select option{background:var(--bg1);color:var(--text);}
   <div class="glass modal" style="text-align:left;">
     <h3 id="exModalTitle" style="margin-top:0;">Ajouter un exercice</h3>
     <div style="margin-bottom:10px;">
+      <label style="font-size:12px;color:var(--sub);">Choisir dans le catalogue</label>
+      <select id="exPick" style="width:100%;margin-top:4px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);"></select>
+    </div>
+    <div style="margin-bottom:10px;">
       <label style="font-size:12px;color:var(--sub);">Nom</label>
       <input type="text" id="exName" style="width:100%;margin-top:4px;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);">
     </div>
@@ -1745,7 +1749,22 @@ function openExModal(index){
     document.getElementById("exNote").value=ex.note||"";
     setExType(ex.timed?"chrono":"rep");
   }
+  fillExPick(document.getElementById("exName").value);
   document.getElementById("exModal").classList.add("active");
+}
+function fillExPick(current){
+  const sel=document.getElementById("exPick");
+  const sorted=[...CATALOG].sort((a,b)=>(a.zone||"").localeCompare(b.zone||"")||a.n.localeCompare(b.n));
+  sel.innerHTML='<option value="">— Choisir dans le catalogue —</option>'
+    + sorted.map(e=>`<option value="${e.n.replace(/"/g,'&quot;')}">${e.zone||""} · ${e.n}</option>`).join("")
+    + '<option value="__autre">Autre (écrire le nom)</option>';
+  const exists=CATALOG.some(e=>e.n===current);
+  sel.value = exists ? current : (current ? "__autre" : "");
+  sel.onchange=()=>{
+    if(sel.value && sel.value!=="__autre") document.getElementById("exName").value=sel.value;
+    if(sel.value==="__autre") document.getElementById("exName").value="";
+    if(sel.value==="__autre") document.getElementById("exName").focus();
+  };
 }
 document.getElementById("addExBtn").onclick=()=>openExModal(null);
 document.getElementById("exCancelBtn").onclick=()=>document.getElementById("exModal").classList.remove("active");
