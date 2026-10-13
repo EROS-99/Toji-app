@@ -1,4 +1,4 @@
-const CACHE_NAME = "toji-cache-v2";
+const CACHE_NAME = "toji-cache-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -27,6 +27,8 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
+  // Les appels vers la base (Supabase) ne sont jamais mis en cache
+  if (new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(req).then((cached) => cached || fetch(req).then((res) => {
       const resClone = res.clone();
