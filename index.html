@@ -1157,11 +1157,14 @@ document.getElementById("dfSend").onclick=async()=>{
 // RESYNCHRONISATION MANUELLE
 document.getElementById("resyncBtn").onclick=async()=>{
   if(!sb||!currentUser){ showToast("Connecte-toi d'abord."); return; }
-  showToast("Synchronisation...");
+  const {data:cloudRows, error:cloudErr}=await sb.from("sessions").select("id,date,day_name");
+  const info = cloudErr
+    ? "Erreur de lecture : "+cloudErr.message
+    : (cloudRows||[]).length+" séance(s) dans le compte";
+  alert(info+"\nCompte : "+currentUser.id.slice(0,8)+"...\nEmail : "+currentUser.email);
   await pullFromCloud();
-  const n=loadSessions().length;
   renderHome(); renderHistory(); renderReport();
-  showToast(n+" séance(s) sur ce téléphone");
+  showToast(loadSessions().length+" séance(s) sur ce téléphone");
 };
 // GLISSER ENTRE LES ONGLETS
 let tStartX=0, tStartY=0, tStartEl=null;
