@@ -276,6 +276,7 @@ select option{background:var(--bg1);color:var(--text);}
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
       <div class="section-title">Données</div>
+      <button class="btn btn-ghost" id="resyncBtn" style="margin-bottom:10px;">Resynchroniser depuis le compte</button>
       <button class="btn btn-ghost" id="exportBtn" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><path d="M12 4v11M8 12l4 4 4-4"/><path d="M4.5 20h15"/></svg> Exporter mes données</button>
       <label class="btn btn-ghost" for="importFile" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><path d="M12 20V9M8 12l4-4 4 4"/><path d="M4.5 20h15"/></svg> Importer des données</label>
       <input type="file" id="importFile" accept="application/json">
@@ -1153,6 +1154,15 @@ document.getElementById("dfSend").onclick=async()=>{
   loadDefis();
 };
 
+// RESYNCHRONISATION MANUELLE
+document.getElementById("resyncBtn").onclick=async()=>{
+  if(!sb||!currentUser){ showToast("Connecte-toi d'abord."); return; }
+  showToast("Synchronisation...");
+  await pullFromCloud();
+  const n=loadSessions().length;
+  renderHome(); renderHistory(); renderReport();
+  showToast(n+" séance(s) sur ce téléphone");
+};
 // GLISSER ENTRE LES ONGLETS
 let tStartX=0, tStartY=0, tStartEl=null;
 document.addEventListener("touchstart",e=>{ tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tStartEl=e.target; },{passive:true});
