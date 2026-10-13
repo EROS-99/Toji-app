@@ -1156,15 +1156,13 @@ document.getElementById("dfSend").onclick=async()=>{
 
 // RESYNCHRONISATION MANUELLE
 document.getElementById("resyncBtn").onclick=async()=>{
-  if(!sb||!currentUser){ showToast("Connecte-toi d'abord."); return; }
-  const {data:cloudRows, error:cloudErr}=await sb.from("sessions").select("id,date,day_name");
-  const info = cloudErr
-    ? "Erreur de lecture : "+cloudErr.message
-    : (cloudRows||[]).length+" séance(s) dans le compte";
-  alert(info+"\nCompte : "+currentUser.id.slice(0,8)+"...\nEmail : "+currentUser.email);
-  await pullFromCloud();
+  if(!sb||!currentUser){ alert("Connecte-toi d'abord."); return; }
+  const {data:rows, error}=await sb.from("sessions").select("*").order("date");
+  if(error){ alert("Erreur de lecture : "+error.message); return; }
+  const mapped=(rows||[]).map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries||[], skip:!!r.skip}));
+  localStorage.setItem(LS_KEY, JSON.stringify(mapped));
   renderHome(); renderHistory(); renderReport();
-  showToast(loadSessions().length+" séance(s) sur ce téléphone");
+  alert("Séances téléchargées : "+mapped.length+"\nEnregistrées sur ce téléphone : "+loadSessions().length);
 };
 // GLISSER ENTRE LES ONGLETS
 let tStartX=0, tStartY=0, tStartEl=null;
