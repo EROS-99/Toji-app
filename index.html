@@ -118,6 +118,13 @@ select{background:var(--glass);color:var(--text);border:1px solid var(--glass-br
 select option{background:var(--bg1);color:var(--text);}
 .icn{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;display:inline-block;}
 
+.seg{display:flex;gap:6px;margin-top:12px;}
+.seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
+.seg button.on{color:#0b0e17;background:linear-gradient(120deg,var(--accent1),var(--accent2));border-color:transparent;font-weight:600;}
+.pal-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:14px;padding:10px 12px;color:var(--text);cursor:pointer;font-size:14px;font-family:'Inter';}
+.pal-btn.on{border-color:var(--accent1);box-shadow:0 0 0 1px var(--accent1) inset;}
+.pal-sw{display:flex;gap:4px;}
+.pal-sw i{width:18px;height:18px;border-radius:50%;display:block;border:1px solid rgba(128,128,128,0.25);}
 </style>
 </head>
 <body>
@@ -176,11 +183,12 @@ select option{background:var(--bg1);color:var(--text);}
   <!-- REPORT -->
   <div class="view" id="view-report">
     <div class="glass">
-      <h2 style="margin-top:0;">Rapport hebdomadaire</h2>
+      <h2 style="margin-top:0;" id="repTitle">Rapport hebdomadaire</h2>
+      <div class="seg" id="repSeg"><button data-per="week">Semaine</button><button data-per="month">Mois</button></div>
       <div class="stat-row">
         <div class="stat"><b id="repDone">0</b><span>séances faites</span></div>
         <div class="stat"><b id="repMissed">0</b><span>manquées</span></div>
-        <div class="stat"><b id="repPlank">0s</b><span>gainage total</span></div>
+        <div class="stat" id="repStatBox" style="cursor:pointer;"><b id="repPlank">0s</b><span id="repStatLabel">total gainage</span></div>
       </div>
       <div class="section-title">Progression par exercice</div>
       <div id="repProgress"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
@@ -285,7 +293,7 @@ select option{background:var(--bg1);color:var(--text);}
   </div>
 </div>
 
-<div class="navbar"><div class="navbar-inner" id="navbar"></div></div>
+<div class="navbar"><div class="navbar-inner" id="navbar" data-noswipe></div></div>
 
 <div class="modal-bg" id="timerModal">
   <div class="glass modal">
@@ -555,7 +563,7 @@ function loadSettings(){
   try{ return JSON.parse(localStorage.getItem(LS_SET)) || defaultSettings(); }catch(e){ return defaultSettings(); }
 }
 function defaultSettings(){
-  return {theme:"dark", appName:"TOJI", bgImage:null, notifOn:false, notifTimes:{1:"19:00",2:"19:00",4:"19:00",6:"10:00"}, notifEnabled:{1:true,2:true,4:true,6:true}, restSeconds:60};
+  return {theme:"dark", palette:"principale", appName:"TOJI", bgImage:null, notifOn:false, notifTimes:{1:"19:00",2:"19:00",4:"19:00",6:"10:00"}, notifEnabled:{1:true,2:true,4:true,6:true}, restSeconds:60};
 }
 function saveSettings(s){ localStorage.setItem(LS_SET, JSON.stringify(s)); pushSettings(); }
 
@@ -563,6 +571,35 @@ let settings = loadSettings();
 let today = new Date().getDay();
 let currentSessionEntries = [];
 
+const PALETTES=[
+  {id:"principale",name:"Principale",c:["04125C","1941BA","316FF6","92BDF9"]},
+  {id:"lavande",name:"Lavande",c:["A775C9","D480BB","DEAFC2","EAF7EC"]},
+  {id:"mauve",name:"Mauve nuit",c:["16131F","4A3F4B","806C79","F0D9E4"]},
+  {id:"bordeaux",name:"Bordeaux",c:["24191A","7E6667","AF9197","C5B5B6"]},
+  {id:"ocean",name:"Océan",c:["001B48","024578","0185BE","97CADB"]},
+  {id:"lagon",name:"Lagon",c:["CCA8DB","F4A07B","86E3C3","FFDD84"]},
+  {id:"corail",name:"Corail",c:["E25B45","ADC865","86D5C9","FAC172"]},
+  {id:"peche",name:"Pêche",c:["E79796","C6C59C","FFC98B","F5CEC7"]}
+];
+// Les 4 couleurs de chaque palette, du plus sombre au plus clair
+function applyPalette(){
+  const p=PALETTES.find(x=>x.id===(settings.palette||"principale"))||PALETTES[0];
+  const [c0,c1,c2,c3]=p.c.map(h=>"#"+h);
+  const st=document.documentElement.style;
+  if(settings.theme==="light"){
+    st.setProperty("--bg1",c3); st.setProperty("--bg2",c2);
+    st.setProperty("--accent1",c1); st.setProperty("--accent2",c0);
+  } else {
+    st.setProperty("--bg1",c0); st.setProperty("--bg2",c1);
+    st.setProperty("--accent1",c2); st.setProperty("--accent2",c3);
+  }
+}
+function renderPalettePicker(){
+  const cur=settings.palette||"principale";
+  document.getElementById("paletteList").innerHTML=PALETTES.map(p=>
+    `<button class="pal-btn${p.id===cur?" on":""}" data-pal="${p.id}"><span>${p.name}</span><span class="pal-sw">${p.c.map(h=>`<i style="background:#${h}"></i>`).join("")}</span></button>`
+  ).join("");
+}
 function applyTheme(){
   if(settings.bgImage){ localStorage.setItem("toji_bg", settings.bgImage); delete settings.bgImage; saveSettings(settings); }
   document.documentElement.setAttribute("data-theme", settings.theme==="light"?"light":"dark");
@@ -570,6 +607,7 @@ function applyTheme(){
   document.getElementById("lightSwitch").checked = settings.theme==="light";
   document.getElementById("brandName").textContent = settings.appName || "TOJI";
   document.title = (settings.appName||"TOJI")+" — Suivi d'entraînement";
+  applyPalette();
   const bg=localStorage.getItem("toji_bg");
   document.body.style.backgroundImage = bg ? `url(${bg})` : "";
 }
@@ -775,13 +813,13 @@ NAVS.forEach(n=>{
   b.innerHTML=`<span class="ic">${n.ic}</span>${n.label}`;
   b.onclick=()=>showView(n.id); navbar.appendChild(b);
 });
-function showView(id){
+function showView(id, fromDrag){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.v===id));
   const inner=document.getElementById("navbar");
   const act=document.querySelector(".nav-btn.active");
-  if(inner && act){
+  if(inner && act && !fromDrag){
     const left=act.offsetLeft-(inner.clientWidth-act.offsetWidth)/2;
     inner.scrollTo({left:Math.max(0,left), behavior:"smooth"});
   }
@@ -986,6 +1024,41 @@ document.getElementById("authPrimary").onclick=()=>onPrimary();
 document.getElementById("authGhost").onclick=()=>onGhost();
 document.getElementById("forgotBtn").onclick=()=>setAuthMode("reset");
 setAuthMode("login");
+
+
+// Palette dans Réglages
+document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
+  <div class="section-title" style="margin-top:22px;">Palette de couleurs</div>
+  <div id="paletteList" style="display:flex;flex-direction:column;gap:8px;"></div>`);
+renderPalettePicker();
+document.getElementById("paletteList").onclick=(e)=>{
+  const b=e.target.closest("[data-pal]"); if(!b) return;
+  settings.palette=b.dataset.pal; saveSettings(settings); applyPalette(); renderPalettePicker();
+};
+
+// Rapport : semaine / mois et carte cliquable
+document.getElementById("repSeg").onclick=(e)=>{
+  const b=e.target.closest("button[data-per]"); if(!b) return;
+  localStorage.setItem("toji_rep_per", b.dataset.per); renderReport();
+};
+document.getElementById("repStatBox").onclick=openStatPicker;
+
+// Barre d'onglets : glisser le doigt change directement d'onglet
+(function(){
+  const bar=document.getElementById("navbar");
+  let startX=0, startY=0, dragging=false;
+  bar.addEventListener("touchstart",e=>{ startX=e.touches[0].clientX; startY=e.touches[0].clientY; dragging=false; },{passive:true});
+  bar.addEventListener("touchmove",e=>{
+    const t=e.touches[0];
+    if(!dragging){
+      if(Math.abs(t.clientX-startX)<8 || Math.abs(t.clientX-startX)<Math.abs(t.clientY-startY)) return;
+      dragging=true;
+    }
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    const btn=el && el.closest ? el.closest(".nav-btn") : null;
+    if(btn && btn.dataset.v && !btn.classList.contains("active")) showView(btn.dataset.v, true);
+  },{passive:true});
+})();
 
 // Compte et sauvegarde dans Réglages
 document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
@@ -1532,28 +1605,49 @@ function renderExerciseCharts(){
   }).join("");
 }
 
+function repRange(per){
+  const today=new Date(); today.setHours(0,0,0,0);
+  if(per==="month"){
+    return {start:new Date(today.getFullYear(), today.getMonth(), 1),
+            prevStart:new Date(today.getFullYear(), today.getMonth()-1, 1),
+            prevEnd:new Date(today.getFullYear(), today.getMonth(), 1), today};
+  }
+  const start=getWeekStart();
+  const prevStart=new Date(start); prevStart.setDate(prevStart.getDate()-7);
+  return {start, prevStart, prevEnd:start, today};
+}
 function renderReport(){
   renderExerciseCharts();
-  const sessions=loadSessions();
-  const weekStart=getWeekStart();
-  const thisWeekAll=sessions.filter(s=>new Date(s.date)>=weekStart);
-  const thisWeek=thisWeekAll.filter(s=>!s.skip);
-  document.getElementById("repDone").textContent=thisWeek.length;
-  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
-  const expectedDays=[0,1,2,3,4,5,6].filter(d=>!getDayProgram(d).rest);
-  const doneDays=new Set(thisWeekAll.map(s=>s.day));
-  const missed=expectedDays.filter(d=>{
-    const offset=(d+6)%7;
-    const dayDate=new Date(weekStart); dayDate.setDate(dayDate.getDate()+offset);
-    return dayDate<=todayDate && !doneDays.has(d);
-  }).length;
-  document.getElementById("repMissed").textContent=missed;
-  let plankTotal=0;
-  thisWeek.forEach(s=>s.entries.forEach(e=>{ if(e.name.toLowerCase().includes("gainage")) e.values.forEach(v=>{ if(v) plankTotal+=v; }); }));
-  document.getElementById("repPlank").textContent=plankTotal+"s";
+  const per=localStorage.getItem("toji_rep_per")==="month"?"month":"week";
+  const stat=localStorage.getItem("toji_rep_stat")||"Gainage";
+  const {start,prevStart,prevEnd,today}=repRange(per);
+  document.getElementById("repTitle").textContent = per==="month"?"Rapport mensuel":"Rapport hebdomadaire";
+  document.querySelectorAll("#repSeg button").forEach(b=>b.classList.toggle("on", b.dataset.per===per));
 
-  const lastWeekStart=new Date(weekStart); lastWeekStart.setDate(lastWeekStart.getDate()-7);
-  const lastWeek=sessions.filter(s=>{const d=new Date(s.date); return d>=lastWeekStart && d<weekStart;});
+  const sessions=loadSessions();
+  const inPeriod=sessions.filter(s=>new Date(s.date)>=start);
+  const done=inPeriod.filter(s=>!s.skip);
+  document.getElementById("repDone").textContent=done.length;
+
+  // Jours passés de la période sans séance, hors jours de repos
+  const doneKeys=new Set(inPeriod.map(s=>new Date(s.date).toDateString()));
+  let missed=0;
+  for(let d=new Date(start); d<=today; d.setDate(d.getDate()+1)){
+    if(getDayProgram(d.getDay()).rest) continue;
+    if(!doneKeys.has(d.toDateString())) missed++;
+  }
+  document.getElementById("repMissed").textContent=missed;
+
+  // Total de la période pour l'exercice choisi (somme des répétitions ou des secondes)
+  let total=0;
+  done.forEach(s=>s.entries.forEach(e=>{
+    if(e.name===stat) e.values.forEach(v=>{ if(v) total+=v; });
+  }));
+  const isTime=stat.toLowerCase().includes("gainage")||stat.toLowerCase().includes("planche");
+  document.getElementById("repPlank").textContent = total + (isTime?"s":"");
+  document.getElementById("repStatLabel").textContent = "total " + stat.toLowerCase();
+
+  // Meilleure série par exercice : période en cours et période précédente
   const maxByExercise=(list)=>{
     const m={};
     list.forEach(s=>s.entries.forEach(e=>{
@@ -1564,11 +1658,15 @@ function renderReport(){
     }));
     return m;
   };
-  const curMax=maxByExercise(thisWeek), prevMax=maxByExercise(lastWeek);
+  const curMax=maxByExercise(done);
+  const prevMax=maxByExercise(sessions.filter(s=>{const d=new Date(s.date); return d>=prevStart && d<prevEnd;}));
   const names=[...new Set([...Object.keys(curMax),...Object.keys(prevMax)])];
   const progEl=document.getElementById("repProgress");
   if(!names.length){ progEl.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p>'; return; }
-  progEl.innerHTML = '<p style="color:var(--sub);font-size:12px;margin:0 0 10px;">Meilleure série de la semaine, comparée à la meilleure série de la semaine dernière. "—" = pas de donnée la semaine passée pour comparer.</p>' + names.map(n=>{
+  const intro = per==="month"
+    ? 'Meilleure série du mois, comparée au mois précédent. "—" = pas de donnée le mois passé pour comparer.'
+    : 'Meilleure série de la semaine, comparée à la semaine d\'avant. "—" = pas de donnée la semaine passée pour comparer.';
+  progEl.innerHTML = '<p style="color:var(--sub);font-size:12px;margin:0 0 10px;">'+intro+'</p>' + names.map(n=>{
     const c=curMax[n], p=prevMax[n];
     let diff="";
     if(c!=null && p!=null){
@@ -1577,6 +1675,23 @@ function renderReport(){
     } else diff='<span style="color:var(--sub)">—</span>';
     return `<div class="progress-row"><span>${n}</span><span>${c??'-'} ${diff}</span></div>`;
   }).join("");
+}
+
+// Choix de l'exercice affiché dans la 3e carte du rapport
+function openStatPicker(){
+  const names=[...new Set(CATALOG.map(e=>e.n))];
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
+  ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;max-height:75vh;overflow:auto;">
+    <h3 style="margin:0 0 12px;">Choisir l'exercice</h3>
+    ${names.map(n=>`<button class="btn btn-ghost" data-pick="${n.replace(/"/g,'&quot;')}" style="margin-bottom:8px;justify-content:flex-start;">${n}</button>`).join("")}
+    <button class="btn btn-ghost" data-close style="margin-top:6px;">Fermer</button></div>`;
+  ov.onclick=(e)=>{
+    const b=e.target.closest("[data-pick]");
+    if(b){ localStorage.setItem("toji_rep_stat", b.dataset.pick); renderReport(); ov.remove(); return; }
+    if(e.target===ov || e.target.closest("[data-close]")) ov.remove();
+  };
+  document.body.appendChild(ov);
 }
 
 // SETTINGS: notifications
