@@ -286,6 +286,9 @@ select option{background:var(--bg1);color:var(--text);}
         <input type="text" id="newTemplateName" placeholder="Nom d'une nouvelle séance" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);">
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
+      <div class="section-title">Séances partagées</div>
+      <div id="shareInbox"></div>
+      <button class="btn btn-ghost" id="shareBtn" style="margin-bottom:10px;">Partager la séance sélectionnée</button>
       <div class="section-title">Données</div>
       <button class="btn btn-ghost" id="resyncBtn" style="margin-bottom:10px;">Resynchroniser depuis le compte</button>
       <button class="btn btn-ghost" id="exportBtn" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><path d="M12 4v11M8 12l4 4 4-4"/><path d="M4.5 20h15"/></svg> Exporter mes données</button>
@@ -830,6 +833,7 @@ function showView(id, fromDrag){
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
   if(id==="defis") loadDefis();
+  if(id==="settings") loadShareInbox();
 }
 
 // COMPTE ET SYNCHRONISATION (Supabase)
@@ -882,6 +886,7 @@ async function pullFromCloud(){
   }
   rebuildCatalog();
   if(pushSupported() && Notification.permission==="granted") ensurePush().catch(()=>{});
+  handleShareLink();
 }
 function getUsername(user){ return (user.user_metadata && user.user_metadata.username) || (user.email||"").split("@")[0]; }
 function showWelcome(user){
@@ -1109,6 +1114,108 @@ document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", 
   <div class="section-title" style="margin-top:22px;">Informations</div>
   <a class="btn btn-ghost" href="privacy.html" style="text-decoration:none;margin-bottom:8px;">Politique de confidentialité</a>
   <a class="btn btn-ghost" href="terms.html" style="text-decoration:none;">Conditions d'utilisation</a>`);
+
+// PARTAGE DE SÉANCES (par pseudo ou par lien)
+function copyTemplate(tpl, name){
+  const id="t_"+Date.now()+"_"+Math.floor(Math.random()*1000);
+  PROG.templates[id]={name:name, ex:JSON.parse(JSON.stringify((tpl && tpl.ex) || []))};
+  saveProgramData(PROG);
+  selectedTemplateId=id;
+  renderTemplateSelect(); renderProgExList(); renderDayMapList();
+  return id;
+}
+function openShareSheet(){
+  const id=selectedTemplateId;
+  if(!id || !PROG.templates[id]){ showToast("Choisis d'abord une séance."); return; }
+  const tpl={name:PROG.templates[id].name, ex:PROG.templates[id].ex||[]};
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
+  ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;">
+    <h3 style="margin:0 0 12px;">Partager « ${tpl.name} »</h3>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:6px;">Envoyer à un ami (pseudo exact)</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input id="shPseudo" placeholder="Pseudo exact" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:10px;color:var(--text);">
+      <button class="btn btn-primary" id="shSend" style="width:auto;padding:10px 14px;">Envoyer</button>
+    </div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:6px;">Ou créer un lien</div>
+    <button class="btn btn-ghost" id="shLink">Créer un lien de partage</button>
+    <div id="shLinkBox" style="font-size:12px;word-break:break-all;margin-top:8px;"></div>
+    <button class="btn btn-ghost" data-close style="margin-top:12px;">Fermer</button>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) ov.remove(); });
+
+  ov.querySelector("#shSend").onclick=async()=>{
+    const p=ov.querySelector("#shPseudo").value.trim();
+    if(!p) return;
+    const {data:found,error:e1}=await sb.rpc("find_user_by_username",{p_name:p});
+    if(e1 || !found || !found.length){ showToast("Aucun compte avec ce pseudo exact."); return; }
+    if(found[0].user_id===currentUser.id){ showToast("Tu ne peux pas t'envoyer ta propre séance."); return; }
+    const {error:e2}=await sb.from("shared_sessions").insert({
+      from_user:currentUser.id, from_name:getUsername(currentUser), to_user:found[0].user_id,
+      name:tpl.name, template:tpl
+    });
+    if(e2){ showToast("Erreur : "+e2.message); return; }
+    showToast("Séance envoyée à "+found[0].username+" !");
+    ov.remove();
+  };
+
+  ov.querySelector("#shLink").onclick=async()=>{
+    const token=[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,"0")).join("");
+    const {error}=await sb.from("shared_sessions").insert({
+      from_user:currentUser.id, from_name:getUsername(currentUser), token:token,
+      name:tpl.name, template:tpl
+    });
+    if(error){ showToast("Erreur : "+error.message); return; }
+    const url=location.origin+location.pathname+"?share="+token;
+    const box=ov.querySelector("#shLinkBox");
+    box.innerHTML=`<div style="margin-bottom:8px;">${url}</div>
+      <button class="btn btn-ghost" id="shCopy">Copier le lien</button>
+      <button class="btn btn-danger" id="shRevoke" style="margin-top:8px;">Révoquer ce lien</button>`;
+    box.querySelector("#shCopy").onclick=()=>{ navigator.clipboard && navigator.clipboard.writeText(url); showToast("Lien copié."); };
+    box.querySelector("#shRevoke").onclick=async()=>{
+      const {error:e3}=await sb.from("shared_sessions").delete().eq("token",token);
+      if(e3){ showToast("Erreur : "+e3.message); return; }
+      box.innerHTML='<span style="color:var(--sub);">Lien révoqué. Ceux qui ont déjà copié la séance la gardent.</span>';
+    };
+  };
+}
+async function loadShareInbox(){
+  const el=document.getElementById("shareInbox");
+  if(!el || !sb || !currentUser) return;
+  const {data,error}=await sb.from("shared_sessions").select("*").eq("to_user",currentUser.id).eq("status","pending").order("created_at",{ascending:false});
+  if(error || !data || !data.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;margin:0 0 10px;">Aucune séance reçue.</p>'; return; }
+  el.innerHTML=data.map(s=>`<div class="glass" style="margin-bottom:10px;padding:12px;">
+    <b>${s.name}</b>
+    <div style="font-size:12px;color:var(--sub);margin:2px 0 8px;">De ${s.from_name||"un ami"} · ${((s.template&&s.template.ex)||[]).length} exercice(s)</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" data-sacc="${s.id}" style="flex:1;">Accepter</button>
+      <button class="btn btn-ghost" data-sref="${s.id}" style="flex:1;">Refuser</button>
+    </div></div>`).join("");
+  el.querySelectorAll("[data-sacc]").forEach(b=>b.onclick=()=>respondShare(b.dataset.sacc,"accepted",data));
+  el.querySelectorAll("[data-sref]").forEach(b=>b.onclick=()=>respondShare(b.dataset.sref,"refused",data));
+}
+async function respondShare(id,status,list){
+  const s=list.find(x=>x.id===id); if(!s) return;
+  if(status==="accepted") copyTemplate(s.template, s.name);
+  const {error}=await sb.from("shared_sessions").update({status:status}).eq("id",id);
+  if(error) showToast("Erreur : "+error.message);
+  else if(status==="accepted") showToast("Séance ajoutée à tes séances.");
+  loadShareInbox();
+}
+// Lien reçu (?share=...) : proposer d'ajouter la séance
+async function handleShareLink(){
+  const token=new URLSearchParams(location.search).get("share");
+  if(!token || !sb || !currentUser) return;
+  history.replaceState(null,"",location.pathname);
+  const {data,error}=await sb.rpc("get_shared_by_token",{p_token:token});
+  if(error || !data || !data.length){ showToast("Ce lien n'existe plus."); return; }
+  const s=data[0];
+  if(!confirm((s.from_name||"Un ami")+" t'envoie la séance « "+s.name+" ». L'ajouter à tes séances ?")) return;
+  copyTemplate(s.template, s.name);
+  showToast("Séance ajoutée à tes séances.");
+}
+document.getElementById("shareBtn").onclick=openShareSheet;
 
 // Compte et sauvegarde dans Réglages
 document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
