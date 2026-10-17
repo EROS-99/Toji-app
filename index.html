@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TOJI · Suivi d'entraînement</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0b0e17">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -880,14 +881,54 @@ async function pullFromCloud(){
     await pushSettings();
   }
   rebuildCatalog();
+  if(pushSupported() && Notification.permission==="granted") ensurePush().catch(()=>{});
 }
 function getUsername(user){ return (user.user_metadata && user.user_metadata.username) || (user.email||"").split("@")[0]; }
 function showWelcome(user){
   document.getElementById("welcomeTitle").textContent="Bienvenue "+getUsername(user)+" !";
   document.getElementById("welcomeModal").classList.add("active");
+  const nb=document.getElementById("notifBtn");
+  nb.style.display=(!pushSupported()||Notification.permission==="granted")?"none":"block";
+  nb.onclick=enablePush;
   document.getElementById("welcomeBtn").onclick=()=>{
     document.getElementById("welcomeModal").classList.remove("active");
   };
+}
+// NOTIFICATIONS DE DÉFI (push)
+const VAPID_PUBLIC="BKY1ImFBXOmiMujN9g1oGuLrnuJEuFdmPbZWiX_7EzWNomJ4tASwBBuLP7j6FUPYRbfIbZOtjItCfyt2l3X-nbE";
+function pushSupported(){ return ("serviceWorker" in navigator) && ("PushManager" in window) && ("Notification" in window); }
+function urlB64ToUint8Array(b64){
+  const pad="=".repeat((4-b64.length%4)%4);
+  const raw=atob((b64+pad).replace(/-/g,"+").replace(/_/g,"/"));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+// Demande la permission (si besoin) et enregistre l'appareil pour les notifications
+async function ensurePush(){
+  if(!pushSupported()||!currentUser||!sb) return "unsupported";
+  let perm=Notification.permission;
+  if(perm==="default") perm=await Notification.requestPermission();
+  if(perm!=="granted") return perm;
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8Array(VAPID_PUBLIC)});
+  const j=sub.toJSON();
+  const {error}=await sb.from("push_subscriptions").upsert({user_id:currentUser.id, endpoint:j.endpoint, subscription:j}, {onConflict:"endpoint"});
+  if(error) console.warn(error);
+  return "granted";
+}
+async function enablePush(){
+  const btn=document.getElementById("notifBtn");
+  btn.disabled=true;
+  const res=await ensurePush();
+  if(res==="granted"){ btn.textContent="Notifications activées"; }
+  else if(res==="unsupported"){ btn.textContent="Sur iPhone : installe l'app sur l'écran d'accueil d'abord"; }
+  else { btn.textContent="Notifications refusées (à réactiver dans les réglages du navigateur)"; }
+  if(res!=="granted") btn.disabled=false;
+}
+// Prévient le destinataire d'un nouveau défi (le serveur vérifie tout)
+function notifyChallenge(id){
+  if(!sb) return;
+  sb.functions.invoke("notify-challenge",{body:{challenge_id:id}}).then(r=>{ if(r.error) console.warn(r.error); });
 }
 async function afterLogin(user, isNew){
   currentUser=user;
@@ -1019,7 +1060,8 @@ document.body.insertAdjacentHTML("beforeend", `
     <h3 id="welcomeTitle" style="margin:0 0 12px;font-size:24px;line-height:1.2;">Bienvenue !</h3>
     <p style="color:var(--sub);font-size:14px;line-height:1.5;">TOJI te permet de suivre tes séances, de créer les tiennes et de voir ta progression.</p>
     <p style="color:var(--sub);font-size:14px;line-height:1.5;">Accueil : ta séance du jour. Séance : la séance à remplir. Catalogue : compose ta propre séance (3 zones, 2 exercices par zone). Historique et Rapport : ta progression.</p>
-    <button class="btn btn-primary" id="welcomeBtn" style="width:100%;margin-top:10px;">C'est parti</button>
+    <button class="btn btn-ghost" id="notifBtn" style="width:100%;margin-top:10px;">Autoriser les notifications de défis</button>
+    <button class="btn btn-primary" id="welcomeBtn" style="width:100%;margin-top:8px;">C'est parti</button>
   </div>
 </div>`);
 document.getElementById("authPrimary").onclick=()=>onPrimary();
@@ -1061,6 +1103,12 @@ document.getElementById("repStatBox").onclick=openStatPicker;
     if(btn && btn.dataset.v && !btn.classList.contains("active")) showView(btn.dataset.v, true);
   },{passive:true});
 })();
+
+// Liens légaux
+document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
+  <div class="section-title" style="margin-top:22px;">Informations</div>
+  <a class="btn btn-ghost" href="privacy.html" style="text-decoration:none;margin-bottom:8px;">Politique de confidentialité</a>
+  <a class="btn btn-ghost" href="terms.html" style="text-decoration:none;">Conditions d'utilisation</a>`);
 
 // Compte et sauvegarde dans Réglages
 document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
@@ -1263,11 +1311,12 @@ document.getElementById("dfSend").onclick=async()=>{
   const {data:found,error:e1}=await sb.rpc("find_user_by_username",{p_name:pseudo});
   if(e1||!found||!found.length){ defiMsg("Aucun compte avec ce pseudo exact."); return; }
   if(found[0].user_id===currentUser.id){ defiMsg("Tu ne peux pas te défier toi-même."); return; }
-  const {error:e2}=await sb.from("challenges").insert({
+  const {data:created,error:e2}=await sb.from("challenges").insert({
     from_user:currentUser.id, to_user:found[0].user_id, title:title, format:format,
     exercises:[{n:exoName, desc:desc}], reference_link: link || null, status:"pending"
-  });
+  }).select("id").single();
   if(e2){ defiMsg("Erreur : "+e2.message); return; }
+  notifyChallenge(created.id);
   ["dfUser","dfTitle","dfDesc","dfLink","dfExoName"].forEach(id=>document.getElementById(id).value="");
   defiMsg("Défi envoyé à "+found[0].username+" !");
   loadDefis();
