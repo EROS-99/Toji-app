@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FORGE — Suivi d'entraînement</title>
+<title>TOJI · Suivi d'entraînement</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0e17">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +33,7 @@ body{
   min-height:100%; padding-top:calc(90px + env(safe-area-inset-top,0px)); padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
   position:relative;
 }
+[data-theme="light"] .glass,[data-theme="light"] .navbar-inner{box-shadow:0 10px 30px -14px rgba(20,25,45,0.18);}
 body::before{
   content:""; position:fixed; inset:0; z-index:-1;
   background:linear-gradient(180deg, rgba(11,14,23,0.55), rgba(11,14,23,0.85));
@@ -43,22 +44,23 @@ body::before{
 h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 .wrap{max-width:520px;margin:0 auto;padding:22px 18px 10px;}
 .glass{
+  box-shadow:0 10px 30px -14px rgba(0,0,0,0.35);
   background:var(--glass); border:1px solid var(--glass-brd);
   backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
   border-radius:22px; padding:18px;
 }
 .brand{font-size:22px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px;}
-.brand span{background:linear-gradient(120deg,var(--accent1),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.brand span{color:var(--accent1);}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .theme-btn{background:var(--glass);border:1px solid var(--glass-brd);border-radius:14px;padding:8px 12px;cursor:pointer;color:var(--text);font-size:18px;}
 .view{display:none;animation:fade .25s ease;}
 .view.active{display:block;}
 @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-.daypill{display:inline-block;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;background:linear-gradient(120deg,var(--accent1),var(--accent2));color:#0b0e17;margin-bottom:10px;}
+.daypill{display:inline-block;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;background:var(--accent1);color:#0b0e17;margin-bottom:10px;}
 .hero h1{font-size:26px;margin:6px 0 4px;}
 .hero p{color:var(--sub);margin:0 0 16px;font-size:14px;}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:16px;padding:14px 18px;font-family:'Inter';font-weight:600;font-size:15px;cursor:pointer;width:100%;}
-.btn-primary{background:linear-gradient(120deg,var(--accent1),var(--accent2));color:#0b0e17;}
+.btn-primary{background:var(--accent1);color:#0b0e17;}
 .btn-ghost{background:var(--glass);border:1px solid var(--glass-brd);color:var(--text);}
 .btn-danger{background:rgba(248,113,113,0.18);color:var(--danger);border:1px solid rgba(248,113,113,0.4);}
 .stat-row{display:flex;gap:10px;margin-top:14px;}
@@ -78,10 +80,10 @@ h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 .timer-btn .icn{width:14px;height:14px;vertical-align:-2px;}
 .finish-bar{margin-top:18px;}
 .navbar{position:fixed;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:flex;justify-content:center;z-index:50;}
-.navbar-inner{display:flex;gap:4px;background:var(--glass);border:1px solid var(--glass-brd);backdrop-filter:blur(20px);border-radius:20px;padding:6px;max-width:500px;width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.navbar-inner{display:flex;gap:4px;box-shadow:0 10px 30px -14px rgba(0,0,0,0.35);background:var(--glass);border:1px solid var(--glass-brd);backdrop-filter:blur(20px);border-radius:20px;padding:6px;max-width:500px;width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .navbar-inner::-webkit-scrollbar{display:none;}
 .nav-btn{flex:0 0 auto;min-width:74px;text-align:center;padding:9px 6px;border-radius:14px;cursor:pointer;font-size:11px;white-space:nowrap;color:var(--sub);}
-.nav-btn.active{background:linear-gradient(120deg,var(--accent1),var(--accent2));color:#0b0e17;font-weight:600;}
+.nav-btn.active{background:var(--accent1);color:#0b0e17;font-weight:600;}
 .nav-btn .ic{display:block;line-height:0;margin-bottom:2px;}
 .nav-btn .ic .icn{width:19px;height:19px;}
 .hist-item{padding:12px 4px;border-bottom:1px solid var(--glass-brd);}
@@ -97,7 +99,7 @@ h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
 .switch input{opacity:0;width:0;height:0;}
 .slider{position:absolute;inset:0;background:var(--glass-brd);border-radius:999px;cursor:pointer;transition:.2s;}
 .slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
-input:checked + .slider{background:linear-gradient(120deg,var(--accent1),var(--accent2));}
+input:checked + .slider{background:var(--accent1);}
 input:checked + .slider:before{transform:translateX(18px);}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
 #guideIllus svg{width:100%;max-width:240px;height:auto;}
@@ -120,7 +122,7 @@ select option{background:var(--bg1);color:var(--text);}
 
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
-.seg button.on{color:#0b0e17;background:linear-gradient(120deg,var(--accent1),var(--accent2));border-color:transparent;font-weight:600;}
+.seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
 .pal-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:14px;padding:10px 12px;color:var(--text);cursor:pointer;font-size:14px;font-family:'Inter';}
 .pal-btn.on{border-color:var(--accent1);box-shadow:0 0 0 1px var(--accent1) inset;}
 .pal-sw{display:flex;gap:4px;}
@@ -606,7 +608,7 @@ function applyTheme(){
   document.getElementById("themeToggle").innerHTML = settings.theme==="light"?ICONS.sun:ICONS.moon;
   document.getElementById("lightSwitch").checked = settings.theme==="light";
   document.getElementById("brandName").textContent = settings.appName || "TOJI";
-  document.title = (settings.appName||"TOJI")+" — Suivi d'entraînement";
+  document.title = (settings.appName||"TOJI")+" · Suivi d'entraînement";
   applyPalette();
   const bg=localStorage.getItem("toji_bg");
   document.body.style.backgroundImage = bg ? `url(${bg})` : "";
@@ -997,7 +999,7 @@ function exportBackup(){
 
 // Écran de connexion
 document.body.insertAdjacentHTML("beforeend", `
-<div class="modal-bg" id="authScreen" style="background:#0b0e17;backdrop-filter:none;z-index:300;">
+<div class="modal-bg" id="authScreen" style="background:var(--bg1);backdrop-filter:none;z-index:300;">
   <div class="glass modal" style="text-align:center;">
     <h3 style="margin-top:0;" id="authTitle">Connexion à TOJI</h3>
     <p style="color:var(--sub);font-size:13px;">Tes séances sont sauvegardées dans ton compte et accessibles partout.</p>
@@ -1013,8 +1015,8 @@ document.body.insertAdjacentHTML("beforeend", `
   </div>
 </div>
 <div class="modal-bg" id="welcomeModal" style="z-index:250;">
-  <div class="glass modal" style="text-align:center;">
-    <h3 style="margin-top:0;" id="welcomeTitle">Bienvenue !</h3>
+  <div class="glass modal" style="text-align:left;">
+    <h3 id="welcomeTitle" style="margin:0 0 12px;font-size:24px;line-height:1.2;">Bienvenue !</h3>
     <p style="color:var(--sub);font-size:14px;line-height:1.5;">TOJI te permet de suivre tes séances, de créer les tiennes et de voir ta progression.</p>
     <p style="color:var(--sub);font-size:14px;line-height:1.5;">Accueil : ta séance du jour. Séance : la séance à remplir. Catalogue : compose ta propre séance (3 zones, 2 exercices par zone). Historique et Rapport : ta progression.</p>
     <button class="btn btn-primary" id="welcomeBtn" style="width:100%;margin-top:10px;">C'est parti</button>
@@ -1889,9 +1891,9 @@ function renderProgExList(){
 function setExType(t){
   exType=t;
   const rep=document.getElementById("typeRepBtn"), chr=document.getElementById("typeChronoBtn");
-  rep.style.background = t==="rep"?"linear-gradient(120deg,var(--accent1),var(--accent2))":"var(--glass)";
+  rep.style.background = t==="rep"?"var(--accent1)":"var(--glass)";
   rep.style.color = t==="rep"?"#0b0e17":"var(--text)";
-  chr.style.background = t==="chrono"?"linear-gradient(120deg,var(--accent1),var(--accent2))":"var(--glass)";
+  chr.style.background = t==="chrono"?"var(--accent1)":"var(--glass)";
   chr.style.color = t==="chrono"?"#0b0e17":"var(--text)";
   document.getElementById("exRangeLabel").textContent = t==="chrono"?"Consigne affichée (ex: 30-60 sec)":"Plage de répétitions (ex: 10-20)";
   document.getElementById("exDurWrap").style.display = t==="chrono"?"block":"none";
