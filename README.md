@@ -1,24 +1,84 @@
-# TOJI — version auto-hébergée
+# TOJI
 
-Ce dossier contient tout ce qu'il faut pour héberger TOJI toi-même, avec de vraies notifications Android (grâce au service worker `sw.js`, impossible à faire tourner directement depuis une page d'artifact Claude).
+TOJI est une application web de suivi d'entraînement. Elle fonctionne sur téléphone et ordinateur, s'installe sur l'écran d'accueil comme une application, et reste utilisable hors ligne avec les dernières données synchronisées.
 
-## Déployer en 2 minutes avec Netlify (gratuit)
+## Fonctionnalités
 
-1. Va sur https://app.netlify.com/drop
-2. Fais glisser **tout ce dossier** (les 5 fichiers : index.html, manifest.json, sw.js, icon-192.png, icon-512.png) dans la zone de dépôt.
-3. Netlify te donne un lien du style `https://un-nom-aleatoire.netlify.app`.
-4. Ouvre ce lien sur ton téléphone Android, installe-le comme avant ("Ajouter à l'écran d'accueil"), et active les notifications dans Réglages.
+**Entraînement**
+- Accueil avec la séance du jour et le bouton « Séance faite aujourd'hui ».
+- Séance : saisie des répétitions ou des secondes, minuteur de repos, exercices chronométrés.
+- Catalogue : exercices classés par zone, exercices personnalisés, séances composées (3 zones, 2 exercices par zone).
+- Historique des séances, avec rattrapage d'une séance passée et jours de voyage (saut).
 
-## Ce qui change par rapport à la version dans le chat
+**Rapport**
+- Vue Semaine ou Mois, avec séances faites, séances manquées et total d'un exercice choisi (gainage par défaut, ou n'importe quel exercice du catalogue).
+- Progression par exercice, comparée à la période précédente, et graphiques par exercice.
 
-- Un vrai **service worker** (`sw.js`) est enregistré, ce qui permet à la notification de s'afficher correctement sur Android (la méthode utilisée avant ne fonctionne que sur PC).
-- L'app est reconnue comme une vraie PWA installable (grâce à `manifest.json`), avec sa propre icône.
-- Tes données restent en local sur l'appareil, comme avant — pense à exporter régulièrement depuis Réglages pour garder une sauvegarde.
+**Réglages**
+- Programme par jour de la semaine, rappels, thème clair ou sombre.
+- Huit palettes de couleurs au choix.
+- Nom de l'application, photo de fond (stockée uniquement sur le téléphone).
+- Export et import des données, resynchronisation depuis le compte.
 
-## Important à savoir
+**Compte et synchronisation**
+- Connexion par email et mot de passe, avec un pseudo affiché dans l'app.
+- Les séances, réglages et exercices sont sauvegardés dans le compte et accessibles depuis n'importe quel appareil.
+- Les données locales sont liées au compte qui les a créées : elles sont effacées si un autre compte se connecte sur le même téléphone.
 
-Même avec cette version, Android peut encore arrêter l'app si elle reste fermée très longtemps ou si l'optimisation de batterie n'est pas désactivée pour elle (voir Réglages → Batterie → [nom de l'app] → "Pas d'optimisation"). Pour une fiabilité à 100 % même app totalement fermée pendant des jours, il faudrait un vrai serveur de notifications push — un projet plus lourd, à envisager seulement si cette version ne suffit pas.
+**Défis entre amis**
+- Envoi d'un défi à un ami par pseudo exact. Aucune liste de comptes n'est visible.
+- Formats : total de répétitions, maximum en une série, pyramide descendante, tours complets.
+- Exercice au choix dans le catalogue, ou exercice libre avec description des gestes et lien de référence facultatif.
+- L'ami accepte ou refuse, puis chacun saisit son score. Le gagnant s'affiche quand les deux scores sont enregistrés.
+- Délai de 48 heures : un défi accepté non terminé à temps est marqué comme expiré.
+- Mise à jour en temps réel, avec un filet de sécurité toutes les 10 secondes quand l'onglet est ouvert.
+- Notification push quand un défi est reçu, même si l'application est fermée (après autorisation).
 
-## Renommer / changer de domaine plus tard
+## Structure du dépôt
 
-Si tu veux un nom de domaine personnalisé, Netlify permet d'en brancher un gratuitement (Domain settings → Add custom domain) une fois que tu en as acheté un (ex. chez Namecheap, OVH, etc.).
+| Fichier | Rôle |
+|---|---|
+| `index.html` | L'application complète (interface, logique, styles). |
+| `sw.js` | Service worker : mode hors ligne, cache et réception des notifications. |
+| `manifest.json` | Informations d'installation (nom, icônes, couleurs). |
+| `icon-192.png`, `icon-512.png` | Icônes de l'application. |
+| `favicon.svg` | Icône de l'onglet du navigateur. |
+| `privacy.html` | Politique de confidentialité. |
+| `terms.html` | Conditions d'utilisation. |
+| `notify-challenge.ts` | Fonction serveur (Supabase Edge Function) qui envoie les notifications de défi. Elle n'est pas servie par le site, elle est déployée dans Supabase. |
+
+## Mise en ligne
+
+L'application est publiée avec GitHub Pages, depuis la branche `main` du dépôt.
+
+1. Mets à jour les fichiers du dépôt (ou remplace-les un par un).
+2. Incrémente la version du cache dans `sw.js` (la ligne `CACHE_NAME`, par exemple `toji-cache-v11` devient `toji-cache-v12`). Sans ce changement, les téléphones peuvent garder une ancienne version.
+3. Commit sur `main`, attends quelques instants, puis ferme et rouvre l'application deux fois.
+
+Adresse publique : https://eros-99.github.io/Toji-app/
+
+## Base de données (Supabase)
+
+Le projet Supabase contient :
+
+- **Tables** : `profiles` (pseudos), `sessions`, `settings`, `custom_exercises`, `challenges` (défis) et `push_subscriptions` (appareils abonnés aux notifications).
+- **Fonctions** : `find_user_by_username` (recherche d'un pseudo exact, réservée aux comptes connectés) et `usernames_for` (pseudos des participants à un de tes défis).
+- **Règles de sécurité (RLS)** : chaque utilisateur ne lit et ne modifie que ses propres données. Les défis sont protégés par un garde-fou qui empêche de modifier le contenu d'un défi après l'envoi, de saisir un score pour l'autre joueur, ou de dépasser la deadline.
+- **Temps réel** : la table `challenges` est publiée sur le canal temps réel de Supabase.
+- **Fonction `notify-challenge`** : elle vérifie que l'appelant est connecté et qu'il est bien l'auteur du défi, puis envoie la notification aux appareils du destinataire.
+- **Secrets de la fonction** : `VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY`. La clé privée ne doit jamais être publiée dans le dépôt.
+
+## Notifications
+
+- Android : fonctionne dans Chrome après autorisation.
+- iPhone : l'application doit être installée sur l'écran d'accueil (depuis Safari, Partager, « Sur l'écran d'accueil »), avec iOS 16.4 ou plus récent.
+
+## Limites connues
+
+- Les scores des défis sont déclaratifs : chaque joueur saisit le sien, il n'existe pas de vérification automatique.
+- Une fois un score saisi, il ne peut plus être modifié dans l'app.
+- Les séances et réglages locaux ne sont pas partagés entre deux comptes sur un même téléphone.
+
+## Confidentialité
+
+Les données sont hébergées chez Supabase et la publication se fait via GitHub Pages. TOJI n'utilise ni publicité ni outil de mesure d'audience. Le détail est dans `privacy.html`.
