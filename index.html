@@ -906,7 +906,11 @@ async function doSignUp(){
   if(!email||pass.length<6){ showAuth("Entre un email et un mot de passe d'au moins 6 caractères."); return; }
   showAuth("Création du compte...");
   const {data,error}=await sb.auth.signUp({email:email, password:pass, options:{data:{username:user}}});
-  if(error){ showAuth("Erreur : "+error.message); return; }
+  if(error){
+    const msg=(error.message||"").toLowerCase();
+    showAuth(msg.includes("database") ? "Ce pseudo est déjà pris. Essaie-en un autre." : "Erreur : "+error.message);
+    return;
+  }
   if(data.session) afterLogin(data.session.user, true);
   else showAuth("Compte créé. Connecte-toi maintenant.");
 }
