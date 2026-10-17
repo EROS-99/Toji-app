@@ -1,5 +1,5 @@
-const CACHE_NAME = "toji-cache-v8";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE_NAME = "toji-cache-v11";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./favicon.svg", "./privacy.html", "./terms.html"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -45,7 +45,20 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil(
     self.clients.matchAll({ type: "window" }).then((clientsArr) => {
       if (clientsArr.length) return clientsArr[0].focus();
-      return self.clients.openWindow("./index.html");
+      return self.clients.openWindow((e.notification.data && e.notification.data.url) || "./index.html");
+    })
+  );
+});
+
+self.addEventListener("push", (e) => {
+  let d = { title: "TOJI", body: "Tu as une nouvelle notification" };
+  try { d = e.data.json(); } catch (err) {}
+  e.waitUntil(
+    self.registration.showNotification(d.title, {
+      body: d.body,
+      icon: "./icon-192.png",
+      badge: "./icon-192.png",
+      data: { url: d.url || "./" }
     })
   );
 });
