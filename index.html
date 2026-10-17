@@ -1058,6 +1058,12 @@ async function loadDefis(){
   if(!sb||!currentUser){ list.innerHTML='<p style="color:var(--sub);font-size:13px;">Connecte-toi pour utiliser les défis.</p>'; return; }
   const {data,error}=await sb.from("challenges").select("*").order("created_at",{ascending:false});
   if(error){ list.innerHTML='<p style="color:var(--sub);font-size:13px;">Impossible de charger les défis.</p>'; console.warn(error); return; }
+  ensureDefisRealtime();
+  const late=data.filter(c=>c.status==="accepted" && new Date(c.deadline)<new Date());
+  if(late.length){
+    await sb.from("challenges").update({status:"expired"}).in("id",late.map(c=>c.id));
+    late.forEach(c=>c.status="expired");
+  }
   const ids=[...new Set(data.flatMap(c=>[c.from_user,c.to_user]))].filter(id=>id!==currentUser.id);
   defiNames={};
   if(ids.length){
@@ -1066,6 +1072,31 @@ async function loadDefis(){
   }
   renderDefis(data);
 }
+let defisChannel=null;
+// Rafraîchit la liste sauf si l'utilisateur est en train de taper un score
+function refreshDefisIfSafe(){
+  const list=document.getElementById("defisList");
+  if(!list || !currentUser) return;
+  if(document.activeElement && list.contains(document.activeElement) && document.activeElement.tagName==="INPUT") return;
+  loadDefis();
+}
+// Temps réel : Supabase prévient l'app dès qu'un défi change
+function ensureDefisRealtime(){
+  if(defisChannel || !sb || !currentUser) return;
+  defisChannel=sb.channel("defis-"+currentUser.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"challenges"}, ()=>refreshDefisIfSafe())
+    .subscribe();
+}
+// Filet de sécurité : toutes les 10 secondes quand l'onglet Défis est ouvert
+setInterval(()=>{
+  const list=document.getElementById("defisList");
+  if(list && list.offsetParent) refreshDefisIfSafe();
+},10000);
+document.addEventListener("visibilitychange",()=>{
+  const list=document.getElementById("defisList");
+  if(!document.hidden && list && list.offsetParent) refreshDefisIfSafe();
+});
+
 function defiCard(c){
   const me=currentUser.id, isSender=c.from_user===me;
   const other=isSender? nameOfDefi(c.to_user) : nameOfDefi(c.from_user);
@@ -1083,7 +1114,7 @@ function defiCard(c){
       : `<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-primary" data-acc="${c.id}" style="flex:1;">Accepter</button><button class="btn btn-ghost" data-ref="${c.id}" style="flex:1;">Refuser</button></div>`;
   } else if(c.status==="refused"){
     body=`<p style="color:var(--sub);font-size:13px;margin:8px 0 0;">Défi refusé.</p>`;
-  } else if(c.status==="accepted" && expired){
+  } else if(c.status==="expired" || (c.status==="accepted" && expired)){
     body=`<p style="color:#f87171;font-size:13px;margin:8px 0 0;">Délai dépassé, le défi est annulé.</p>`;
   } else if(c.status==="accepted"){
     if(myScore==null){
@@ -1095,6 +1126,8 @@ function defiCard(c){
     let res = myScore>otherScore ? "Tu gagnes !" : myScore<otherScore ? `${other} gagne.` : "Égalité.";
     body=`<div style="margin-top:8px;font-size:14px;"><b>Toi : ${myScore}</b> · ${other} : ${otherScore}</div><div style="margin-top:4px;color:var(--accent1);font-size:13px;">${res}</div>`;
   }
+  const deletable = ["done","refused","expired"].includes(c.status) || (c.status==="accepted" && expired);
+  if(deletable) body += `<button class="btn btn-ghost" data-del="${c.id}" style="margin-top:10px;width:100%;">Supprimer</button>`;
   return `<div class="glass" style="margin-bottom:12px;">${head}${body}</div>`;
 }
 function renderDefis(list){
@@ -1103,16 +1136,23 @@ function renderDefis(list){
   const received=list.filter(c=>c.to_user===me && c.status==="pending");
   const active=list.filter(c=>c.status==="accepted" && (c.from_user===me||c.to_user===me));
   const sent=list.filter(c=>c.from_user===me && c.status==="pending");
-  const done=list.filter(c=>c.status==="done" || c.status==="refused");
+  const done=list.filter(c=>["done","refused","expired"].includes(c.status));
   document.getElementById("defisList").innerHTML =
     sec("Défis reçus", received) + sec("En cours", active) + sec("Envoyés", sent) + sec("Terminés", done) ||
     '<p style="color:var(--sub);font-size:13px;">Aucun défi pour le moment.</p>';
   document.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>respondDefi(b.dataset.acc,"accepted"));
   document.querySelectorAll("[data-ref]").forEach(b=>b.onclick=()=>respondDefi(b.dataset.ref,"refused"));
   document.querySelectorAll("[data-score]").forEach(b=>b.onclick=()=>submitDefiScore(b.dataset.score));
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>deleteDefi(b.dataset.del));
 }
 async function respondDefi(id,status){
   const {error}=await sb.from("challenges").update({status:status}).eq("id",id);
+  if(error) alert("Erreur : "+error.message);
+  loadDefis();
+}
+async function deleteDefi(id){
+  if(!confirm("Supprimer ce défi ?")) return;
+  const {error}=await sb.from("challenges").delete().eq("id",id);
   if(error) alert("Erreur : "+error.message);
   loadDefis();
 }
