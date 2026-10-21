@@ -1553,7 +1553,8 @@ function saveActiveSession(){
   document.querySelectorAll("#sessList input[data-ex]").forEach(inp=>{
     if(inp.value) values[inp.dataset.ex+"-"+inp.dataset.set]=inp.value;
   });
-  try{ localStorage.setItem(ACTIVE_KEY, JSON.stringify({dow:sessionDow, date:sessionDateOverride, day:sessionDay, values:values})); }catch(e){}
+  const done=[...document.querySelectorAll("#sessList .set-ok-done")].map(b=>b.dataset.ex+"-"+b.dataset.set);
+  try{ localStorage.setItem(ACTIVE_KEY, JSON.stringify({dow:sessionDow, date:sessionDateOverride, day:sessionDay, values:values, done:done})); }catch(e){}
 }
 function restoreActiveSession(day){
   let s=null;
@@ -1563,6 +1564,12 @@ function restoreActiveSession(day){
     const [e,st]=k.split("-");
     const inp=document.querySelector(`input[data-ex="${e}"][data-set="${st}"]`);
     if(inp) inp.value=v;
+  });
+  // Remet le ✓ sur les séries déjà validées
+  (s.done||[]).forEach(k=>{
+    const [e,st]=k.split("-");
+    const b=document.querySelector(`.set-ok-btn[data-ex="${e}"][data-set="${st}"]`);
+    if(b){ b.textContent="✓"; b.classList.add("set-ok-done"); }
   });
 }
 function clearActiveSession(){ try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
@@ -1585,6 +1592,7 @@ function finishSession(){
 }
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
+document.getElementById("sessList").addEventListener("click", saveActiveSession);
 // Retour du réseau : on renvoie ce qui a été enregistré hors ligne
 window.addEventListener("online", ()=>{ if(currentUser) pushSessions(loadSessions()); });
 document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
