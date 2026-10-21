@@ -155,6 +155,7 @@ select option{background:var(--bg1);color:var(--text);}
 .cal-d.future{opacity:.3;}
 .cal-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--sub);margin-top:12px;}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle;}
+#progExList,#progExList *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
 .seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
@@ -325,6 +326,7 @@ select option{background:var(--bg1);color:var(--text);}
         <input type="text" id="newTemplateName" placeholder="Nom d'une nouvelle séance" style="flex:1;background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:9px 10px;color:var(--text);">
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
+      <button class="btn btn-primary" id="saveProgBtn" style="width:100%;margin:14px 0 6px;">Enregistrer le programme</button>
       <div class="section-title">Séances partagées</div>
       <div id="shareInbox"></div>
       <button class="btn btn-ghost" id="shareBtn" style="margin-bottom:10px;">Partager la séance sélectionnée</button>
@@ -1324,6 +1326,12 @@ async function handleShareLink(){
   showToast("Séance ajoutée à tes séances.");
 }
 document.getElementById("shareBtn").onclick=openShareSheet;
+document.getElementById("saveProgBtn").onclick=async()=>{
+  saveProgramData(PROG);
+  if(!currentUser){ showToast("Programme enregistré sur ce téléphone."); return; }
+  await pushSettings();
+  showToast("Programme enregistré dans ton compte.");
+};
 
 // PREMIÈRE CONNEXION : jours, objectif et niveau pour construire un programme propre au compte
 let pendingOnboarding=false;
@@ -1830,7 +1838,7 @@ document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); }
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
 document.getElementById("sessList").addEventListener("click", saveActiveSession);
 // Retour du réseau : on renvoie ce qui a été enregistré hors ligne
-window.addEventListener("online", ()=>{ if(currentUser) pushSessions(loadSessions()); });
+window.addEventListener("online", ()=>{ if(currentUser){ pushSessions(loadSessions()); pushSettings(); } });
 document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
 document.getElementById("confirmFinishNo").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); };
 document.getElementById("catchupBtn").onclick=()=>{
