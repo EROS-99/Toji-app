@@ -2293,13 +2293,14 @@ function renderProgExList(){
   if(!tpl.ex || !tpl.ex.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Aucun exercice.</p>'; return; }
   tpl.ex.forEach((ex,i)=>{
     const row=document.createElement("div"); row.className="progress-row";
-    row.innerHTML=`<span>${ex.n} <small style="color:var(--sub);">(${ex.timed?"Chrono":"Rep"} · ${ex.sets}x)</small></span><span style="display:flex;gap:10px;"><button data-i="${i}" class="guideExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.info}</button><button data-i="${i}" class="editExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.pencil}</button><button data-i="${i}" class="delExBtn" style="background:none;border:none;color:var(--danger);cursor:pointer;">${ICONS.trash}</button></span>`;
+    row.innerHTML=`<span style="display:flex;align-items:center;gap:10px;min-width:0;"><span class="dragHandle" data-i="${i}" style="touch-action:none;cursor:grab;color:var(--sub);font-size:18px;line-height:1;padding:4px 2px;user-select:none;">⋮⋮</span><span>${ex.n} <small style="color:var(--sub);">(${ex.timed?"Chrono":"Rep"} · ${ex.sets}x)</small></span></span><span style="display:flex;gap:10px;"><button data-i="${i}" class="guideExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.info}</button><button data-i="${i}" class="editExBtn" style="background:none;border:none;color:var(--accent1);cursor:pointer;">${ICONS.pencil}</button><button data-i="${i}" class="delExBtn" style="background:none;border:none;color:var(--danger);cursor:pointer;">${ICONS.trash}</button></span>`;
     el.appendChild(row);
   });
   el.querySelectorAll(".guideExBtn").forEach(b=>{
     b.onclick=()=>{ const ex=tpl.ex[parseInt(b.dataset.i)]; openGuide(ex.n, ex.note); };
   });
   el.querySelectorAll(".editExBtn").forEach(b=>b.onclick=()=>openExModal(parseInt(b.dataset.i)));
+  el.querySelectorAll(".dragHandle").forEach(h=>h.addEventListener("pointerdown", e=>startReorder(e, el, h)));
   el.querySelectorAll(".delExBtn").forEach(b=>{
     b.onclick=()=>{
       if(b.dataset.armed==="1"){
@@ -2312,6 +2313,38 @@ function renderProgExList(){
       }
     };
   });
+}
+
+// Ranger les exercices : on maintient le ⋮⋮ et on glisse la ligne à sa place
+function startReorder(e, el, handle){
+  e.preventDefault();
+  handle.setPointerCapture(e.pointerId);
+  const row=handle.closest(".progress-row");
+  row.style.opacity="0.85"; row.style.background="var(--glass)"; row.style.boxShadow="0 10px 24px -10px rgba(0,0,0,0.5)"; row.style.position="relative"; row.style.zIndex="5";
+  const move=(ev)=>{
+    const others=[...el.querySelectorAll(".progress-row")].filter(r=>r!==row);
+    let before=null;
+    for(const r of others){ const rc=r.getBoundingClientRect(); if(ev.clientY < rc.top+rc.height/2){ before=r; break; } }
+    if(before){ if(before.previousElementSibling!==row) el.insertBefore(row, before); }
+    else if(el.lastElementChild!==row){ el.appendChild(row); }
+  };
+  const up=()=>{
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", up);
+    handle.removeEventListener("pointercancel", up);
+    row.style.opacity=""; row.style.background=""; row.style.boxShadow=""; row.style.zIndex=""; row.style.position="";
+    const order=[...el.querySelectorAll(".dragHandle")].map(h=>parseInt(h.dataset.i));
+    const tpl=PROG.templates[selectedTemplateId];
+    if(!tpl || !tpl.ex || order.every((v,i)=>v===i)) { renderProgExList(); return; }
+    const old=tpl.ex.slice();
+    tpl.ex=order.map(i=>old[i]);
+    saveProgramData(PROG);
+    renderProgExList();
+    if(PROG.dayMap[today]===selectedTemplateId) renderHome();
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", up);
+  handle.addEventListener("pointercancel", up);
 }
 
 function setExType(t){
