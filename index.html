@@ -1545,6 +1545,27 @@ document.getElementById("skipBtn").onclick=(e)=>{
   }
 };
 let sessionDay=null, sessionDow=null, sessionDateOverride=null;
+const ACTIVE_KEY="toji_active_session";
+// Chaque chiffre saisi est gardé sur le téléphone : si la page se recharge, rien n'est perdu
+function saveActiveSession(){
+  if(!sessionDay) return;
+  const values={};
+  document.querySelectorAll("#sessList input[data-ex]").forEach(inp=>{
+    if(inp.value) values[inp.dataset.ex+"-"+inp.dataset.set]=inp.value;
+  });
+  try{ localStorage.setItem(ACTIVE_KEY, JSON.stringify({dow:sessionDow, date:sessionDateOverride, day:sessionDay, values:values})); }catch(e){}
+}
+function restoreActiveSession(day){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem(ACTIVE_KEY)||"null"); }catch(e){ return; }
+  if(!s || !s.day || s.day.name!==day.name || s.dow!==sessionDow || (s.date||null)!==(sessionDateOverride||null)) return;
+  Object.entries(s.values||{}).forEach(([k,v])=>{
+    const [e,st]=k.split("-");
+    const inp=document.querySelector(`input[data-ex="${e}"][data-set="${st}"]`);
+    if(inp) inp.value=v;
+  });
+}
+function clearActiveSession(){ try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
 function isLastSet(i,s){ return sessionDay && i===sessionDay.ex.length-1 && s===sessionDay.ex[i].sets-1; }
 function showFinishConfirm(){ document.getElementById("confirmFinishModal").classList.add("active"); }
 function finishSession(){
@@ -1558,10 +1579,14 @@ function finishSession(){
   const isoDate = sessionDateOverride ? new Date(sessionDateOverride+"T12:00:00").toISOString() : new Date().toISOString();
   sessions.push({date:isoDate, day:dow, dayName:day.name, entries});
   saveSessions(sessions);
+  clearActiveSession();
   sessionDow=null; sessionDateOverride=null;
   showView("home"); renderHome();
 }
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
+document.getElementById("sessList").addEventListener("input", saveActiveSession);
+// Retour du réseau : on renvoie ce qui a été enregistré hors ligne
+window.addEventListener("online", ()=>{ if(currentUser) pushSessions(loadSessions()); });
 document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
 document.getElementById("confirmFinishNo").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); };
 document.getElementById("catchupBtn").onclick=()=>{
@@ -1634,6 +1659,7 @@ function buildSession(overrideDow, overrideDate, customDay){
   list.querySelectorAll(".guide-btn").forEach(b=>{
     b.onclick=()=>{ const ex=day.ex[parseInt(b.dataset.i)]; openGuide(ex.n, ex.note); };
   });
+  restoreActiveSession(day);
   list.querySelectorAll(".set-ok-btn").forEach(b=>{
     b.onclick=()=>{
       const inp=document.querySelector(`input[data-ex="${b.dataset.ex}"][data-set="${b.dataset.set}"]`);
