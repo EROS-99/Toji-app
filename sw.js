@@ -1,4 +1,4 @@
-const CACHE_NAME = "toji-cache-v13";
+const CACHE_NAME = "toji-cache-v14";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./favicon.svg", "./privacy.html", "./terms.html"];
 
 self.addEventListener("install", (e) => {
