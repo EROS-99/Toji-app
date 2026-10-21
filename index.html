@@ -121,6 +121,9 @@ select{background:var(--glass);color:var(--text);border:1px solid var(--glass-br
 select option{background:var(--bg1);color:var(--text);}
 .icn{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;display:inline-block;}
 
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{padding:9px 12px;border-radius:10px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--text);cursor:pointer;font-size:13px;font-family:'Inter';}
+.chip.on{background:var(--accent1);color:#0b0e17;border-color:transparent;font-weight:600;}
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
 .seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
@@ -858,7 +861,7 @@ async function pushSessions(s){
 async function pushSettings(){
   if(!currentUser || !sb) return;
   const {bgImage, ...st}=loadSettings();
-  const data={...st, customEx: loadCustom()};
+  const data={...st, customEx: loadCustom(), prog: PROG};
   const {error}=await sb.from("settings").upsert({data:data}, {onConflict:"user_id"});
   if(error) console.warn("sync settings:", error);
 }
@@ -879,7 +882,8 @@ async function pullFromCloud(){
   if(setRow && setRow.data && Object.keys(setRow.data).length){
     const cloud=setRow.data;
     if(Array.isArray(cloud.customEx)) localStorage.setItem(LS_CUSTOM, JSON.stringify(cloud.customEx));
-    const {customEx, ...rest}=cloud;
+    const {customEx, prog, ...rest}=cloud;
+    if(prog && prog.templates && prog.dayMap){ PROG=prog; saveProgramData(PROG); }
     if(Object.keys(rest).length) localStorage.setItem(LS_SET, JSON.stringify(rest));
   } else {
     await pushSettings();
@@ -897,6 +901,7 @@ function showWelcome(user){
   nb.onclick=enablePush;
   document.getElementById("welcomeBtn").onclick=()=>{
     document.getElementById("welcomeModal").classList.remove("active");
+    if(pendingOnboarding){ pendingOnboarding=false; setTimeout(showOnboarding,250); }
   };
 }
 // NOTIFICATIONS DE DÉFI (push)
@@ -955,7 +960,7 @@ async function afterLogin(user, isNew){
   renderHome();
   const acc=document.getElementById("accountInfo");
   if(acc) acc.textContent="Connecté : "+getUsername(user)+" ("+user.email+")";
-  if(isNew) showWelcome(user);
+  if(isNew){ showWelcome(user); pendingOnboarding=true; }
 }
 let authMode="login";
 function setAuthMode(m){
@@ -1216,6 +1221,76 @@ async function handleShareLink(){
   showToast("Séance ajoutée à tes séances.");
 }
 document.getElementById("shareBtn").onclick=openShareSheet;
+
+// PREMIÈRE CONNEXION : jours, objectif et niveau pour construire un programme propre au compte
+let pendingOnboarding=false;
+const ONB_DAYS=[[1,"Lun"],[2,"Mar"],[3,"Mer"],[4,"Jeu"],[5,"Ven"],[6,"Sam"],[0,"Dim"]];
+const ONB_GOALS=[["full","Tout le corps"],["haut","Haut du corps"],["bas","Jambes et fessiers"]];
+const ONB_LEVELS=[["debutant","Débutant"],["inter","Intermédiaire"],["avance","Avancé"]];
+const ONB_LEVEL_SETTINGS={debutant:{sets:3,range:"8–12"}, inter:{sets:4,range:"10–15"}, avance:{sets:4,range:"12–20"}};
+const ONB_EX={
+  pompes:"Pompes classiques", pompesLentes:"Pompes lentes", pompesSurel:"Pompes pieds surélevés",
+  pompesDiamant:"Pompes diamant", squats:"Squats", fentes:"Fentes avant", bulgares:"Squats bulgares",
+  mollets:"Mollets debout", crunch:"Crunchs"
+};
+const ONB_FOCUS={
+  full:{label:"Tout le corps", A:["pompes","squats","GAIN"], B:["fentes","pompesLentes","crunch","GAIN"]},
+  haut:{label:"Haut du corps", A:["pompes","pompesDiamant","pompesSurel","GAIN"], B:["pompesLentes","pompesSurel","crunch","GAIN"]},
+  bas:{label:"Jambes et fessiers", A:["squats","fentes","mollets"], B:["bulgares","fentes","GAIN"]}
+};
+function onbExercise(key, level){
+  if(key==="GAIN") return {n:"Gainage", range:"30–60 sec", sets:3, timed:true, dur:30};
+  return {n:ONB_EX[key], range:level.range, sets:level.sets};
+}
+function buildOnboardingProgram(goal, level, days){
+  const f=ONB_FOCUS[goal]||ONB_FOCUS.full;
+  const lv=ONB_LEVEL_SETTINGS[level]||ONB_LEVEL_SETTINGS.debutant;
+  const templates={
+    t_onb_A:{name:f.label+" · A", ex:f.A.map(k=>onbExercise(k,lv))},
+    t_onb_B:{name:f.label+" · B", ex:f.B.map(k=>onbExercise(k,lv))},
+    t_onb_repos:{name:"Repos", rest:true}
+  };
+  const dayMap={};
+  for(let d=0; d<7; d++) dayMap[d]="t_onb_repos";
+  let i=0;
+  DAY_ORDER.forEach(d=>{ if(days.includes(d)){ dayMap[d]=(i%2===0)?"t_onb_A":"t_onb_B"; i++; } });
+  return {templates, dayMap};
+}
+function showOnboarding(){
+  const sel={days:[], goal:"full", level:"debutant"};
+  const chips=(el, items, key, multi)=>{
+    el.innerHTML=items.map(([v,l])=>`<button class="chip${(multi?sel[key].includes(v):sel[key]===v)?" on":""}" data-v="${v}">${l}</button>`).join("");
+    el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+      const v=isNaN(b.dataset.v)?b.dataset.v:parseInt(b.dataset.v);
+      if(multi){ sel[key]=sel[key].includes(v)?sel[key].filter(x=>x!==v):[...sel[key],v]; }
+      else sel[key]=v;
+      chips(el, items, key, multi);
+    });
+  };
+  chips(document.getElementById("onbDays"), ONB_DAYS, "days", true);
+  chips(document.getElementById("onbGoal"), ONB_GOALS, "goal", false);
+  chips(document.getElementById("onbLevel"), ONB_LEVELS, "level", false);
+  document.getElementById("onbModal").classList.add("active");
+  document.getElementById("onbSave").onclick=()=>{
+    if(!sel.days.length){ showToast("Choisis au moins un jour, ou passe pour l'instant."); return; }
+    finishOnboarding(sel.goal, sel.level, sel.days);
+  };
+  document.getElementById("onbSkip").onclick=()=>finishOnboarding("full","debutant",[]);
+}
+function finishOnboarding(goal, level, days){
+  PROG=buildOnboardingProgram(goal, level, days);
+  saveProgramData(PROG);
+  selectedTemplateId=null;
+  settings.onboarded=true;
+  settings.trainingDays=days;
+  settings.goal=goal; settings.level=level;
+  const notif={}; for(let d=0; d<7; d++) notif[d]=days.includes(d);
+  settings.notifEnabled=notif;
+  saveSettings(settings);
+  document.getElementById("onbModal").classList.remove("active");
+  renderHome(); renderTemplateSelect(); renderProgExList(); renderDayMapList();
+  showToast(days.length ? "Programme prêt. Tu peux le modifier dans Réglages." : "Tu pourras choisir tes jours dans Réglages.");
+}
 
 // Compte et sauvegarde dans Réglages
 document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
@@ -2180,5 +2255,19 @@ renderTemplateSelect();
 renderProgExList();
 renderHome();
 </script>
+<div class="modal-bg" id="onbModal" style="z-index:260;">
+  <div class="glass modal" style="text-align:left;max-width:440px;">
+    <h3 style="margin:0 0 6px;font-size:22px;line-height:1.2;">Ton programme</h3>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Quelques réponses pour te proposer des séances adaptées. Tu peux tout changer plus tard dans Réglages.</p>
+    <div class="section-title">Jours d'entraînement</div>
+    <div id="onbDays" class="chips"></div>
+    <div class="section-title">Objectif</div>
+    <div id="onbGoal" class="chips"></div>
+    <div class="section-title">Niveau</div>
+    <div id="onbLevel" class="chips"></div>
+    <button class="btn btn-primary" id="onbSave" style="width:100%;margin-top:16px;">Enregistrer</button>
+    <button class="btn btn-ghost" id="onbSkip" style="width:100%;margin-top:8px;">Passer pour l'instant</button>
+  </div>
+</div>
 </body>
 </html>
