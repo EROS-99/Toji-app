@@ -127,7 +127,7 @@ select option{background:var(--bg1);color:var(--text);}
 .streak-week{display:flex;justify-content:space-between;gap:6px;margin:16px 0 4px;}
 .sw-cell{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--sub);}
 .sw-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--glass-brd);background:var(--glass);font-size:12px;color:var(--text);}
-.sw-dot.done{background:var(--accent1);color:#0b0e17;border-color:transparent;font-weight:700;}
+.sw-dot.done{background:#34D27B;color:#0b0e17;border-color:transparent;font-weight:700;}
 .sw-dot.today{border-color:var(--accent1);box-shadow:0 0 0 1px var(--accent1) inset;}
 .sw-dot.pending{border:1px dashed var(--accent1);color:var(--accent1);}
 .sw-dot.skip{opacity:.6;}
@@ -156,6 +156,18 @@ select option{background:var(--bg1);color:var(--text);}
 .cal-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--sub);margin-top:12px;}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle;}
 #progExList,#progExList *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.streak-card{padding:16px;margin-top:14px;}
+.streak-head{display:flex;align-items:center;gap:12px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--glass-brd);}
+.streak-head .flame{width:30px;height:30px;}
+.streak-lbl{font-size:11px;letter-spacing:.08em;color:var(--sub);text-transform:uppercase;}
+.streak-num{font-size:22px;}
+.streak-unit{font-size:13px;color:var(--sub);}
+.goal-card{display:flex;align-items:center;gap:16px;padding:16px;margin-top:12px;}
+.goal-ring{width:64px;height:64px;flex-shrink:0;}
+.goal-text{flex:1;min-width:0;}
+.goal-value{font-size:20px;font-weight:700;margin-top:2px;}
+.goal-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+.goal-pct{font-size:14px;color:var(--sub);}
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
 .seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
@@ -200,8 +212,26 @@ select option{background:var(--bg1);color:var(--text);}
         <div class="stat"><b id="statStreak">0</b><span>jours de suite</span></div>
         <div class="stat"><b id="statTotal">0</b><span>séances totales</span></div>
       </div>
-      <div class="streak-week" id="streakWeek"></div>
-      <div class="streak-msg" id="streakMsg"></div>
+      <div class="glass streak-card">
+        <div class="streak-head">
+          <span class="flame off" id="flameHome"><svg viewBox="0 0 24 24"><path d="M12 2c1.5 3.5 6.5 6 6.5 12a6.5 6.5 0 0 1-13 0c0-3.5 2-5.5 3-7 .5 2.5 1.5 3.5 3 4C11 8.5 11.2 5 12 2z"/></svg></span>
+          <div><div class="streak-lbl">SÉRIE</div><div><b id="streakNum" class="streak-num">0</b> <span class="streak-unit">jours</span></div></div>
+        </div>
+        <div class="streak-week" id="streakWeek"></div>
+        <div class="streak-msg" id="streakMsg"></div>
+      </div>
+      <div class="glass goal-card" id="goalCard">
+        <svg class="goal-ring" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--glass-brd)" stroke-width="3"/>
+          <circle id="goalArc" cx="18" cy="18" r="15.5" fill="none" stroke="#34D27B" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 18 18)"/>
+        </svg>
+        <div class="goal-text">
+          <div class="streak-lbl" id="goalLabel">Objectif du mois</div>
+          <div class="goal-value" id="goalValue"></div>
+          <div class="goal-sub" id="goalSub"></div>
+        </div>
+        <div class="goal-pct" id="goalPct"></div>
+      </div>
     </div>
   </div>
 
@@ -327,6 +357,10 @@ select option{background:var(--bg1);color:var(--text);}
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
       <button class="btn btn-primary" id="saveProgBtn" style="width:100%;margin:14px 0 6px;">Enregistrer le programme</button>
+      <div class="section-title">Objectif du mois</div>
+      <select id="goalEx" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
+      <input id="goalTarget" type="number" min="1" placeholder="Nombre à atteindre ce mois-ci" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;">
+      <button class="btn btn-ghost" id="goalSave" style="width:100%;margin-bottom:10px;">Enregistrer l'objectif</button>
       <div class="section-title">Séances partagées</div>
       <div id="shareInbox"></div>
       <button class="btn btn-ghost" id="shareBtn" style="margin-bottom:10px;">Partager la séance sélectionnée</button>
@@ -874,7 +908,7 @@ function showView(id, fromDrag){
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
   if(id==="defis") loadDefis();
-  if(id==="settings") loadShareInbox();
+  if(id==="settings"){ loadShareInbox(); renderGoalSettings(); }
 }
 
 // COMPTE ET SYNCHRONISATION (Supabase)
@@ -1224,6 +1258,55 @@ function openCalendar(){
   draw();
 }
 document.getElementById("streakBtn").onclick=openCalendar;
+
+// OBJECTIF DU MOIS : un nombre à atteindre sur un exercice, suivi par un cercle
+function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function isTimedName(n){ const l=n.toLowerCase(); return l.includes("gainage")||l.includes("planche"); }
+function renderGoal(sessions){
+  const arc=document.getElementById("goalArc"); if(!arc) return;
+  const g=settings.monthGoal;
+  const now=new Date(); const mk=monthKey(now);
+  const monthName=now.toLocaleDateString("fr-FR",{month:"long"});
+  const set=(label,value,sub,pct)=>{
+    document.getElementById("goalLabel").textContent=label;
+    document.getElementById("goalValue").textContent=value;
+    document.getElementById("goalSub").textContent=sub;
+    document.getElementById("goalPct").textContent=pct;
+    arc.setAttribute("stroke-dasharray", (pct===""?0:Math.min(100,parseInt(pct)))+" 100");
+  };
+  if(!g || !g.ex || !g.target){
+    set("Objectif du mois","Fixe ton objectif","Choisis un exercice et un nombre dans Réglages","");
+    return;
+  }
+  if(g.month!==mk){
+    set("Nouvel objectif","Renouvelle-le pour "+monthName,"Précédent : "+g.target+" avec "+g.ex,"");
+    return;
+  }
+  let total=0;
+  sessions.filter(s=>!s.skip && monthKey(new Date(s.date))===mk).forEach(s=>s.entries.forEach(e=>{
+    if(e.name===g.ex) e.values.forEach(v=>{ if(v) total+=v; });
+  }));
+  const unit=isTimedName(g.ex)?" s":" reps";
+  const pct=Math.round(total/g.target*100);
+  set("Objectif · "+monthName, total+" / "+g.target+unit, g.ex, pct+"%");
+}
+function renderGoalSettings(){
+  const sel=document.getElementById("goalEx"); if(!sel) return;
+  const names=[...new Set(CATALOG.map(e=>e.n))].sort((a,b)=>a.localeCompare(b,"fr"));
+  sel.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join("");
+  if(settings.monthGoal && settings.monthGoal.ex) sel.value=settings.monthGoal.ex;
+  const t=document.getElementById("goalTarget");
+  if(settings.monthGoal && settings.monthGoal.target) t.value=settings.monthGoal.target;
+}
+document.getElementById("goalSave").onclick=()=>{
+  const ex=document.getElementById("goalEx").value;
+  const target=parseInt(document.getElementById("goalTarget").value);
+  if(!ex || !target || target<1){ showToast("Entre un nombre valide."); return; }
+  settings.monthGoal={ex:ex, target:target, month:monthKey(new Date())};
+  saveSettings(settings);
+  renderHome();
+  showToast("Objectif enregistré.");
+};
 
 // PARTAGE DE SÉANCES (par pseudo ou par lien)
 function copyTemplate(tpl, name){
@@ -1698,6 +1781,7 @@ function renderHome(){
   const streakInfo=computeStreakInfo(sessions);
   document.getElementById("statStreak").textContent=streakInfo.streak;
   renderStreakWeek(sessions, streakInfo);
+  renderGoal(sessions);
   if(!doneToday.length) document.getElementById("skipBtn").style.display = day.rest ? "none" : "block";
   checkMissedReminder();
 }
@@ -1764,6 +1848,8 @@ function renderStreakWeek(sessions, info){
   if(flame){
     flame.className = "flame " + (info.streak===0 ? "off" : (info.pendingDay ? "wait" : "on"));
   }
+  const sn=document.getElementById("streakNum"); if(sn) sn.textContent=info.streak;
+  const fh=document.getElementById("flameHome"); if(fh) fh.className="flame "+(info.streak===0?"off":(info.pendingDay?"wait":"on"));
   const msg=document.getElementById("streakMsg");
   if(msg){
     msg.textContent = info.pendingDay
