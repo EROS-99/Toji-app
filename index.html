@@ -1937,9 +1937,31 @@ document.getElementById("catchupStartBtn").onclick=()=>{
   if(!val) return;
   const dow=new Date(val+"T12:00:00").getDay();
   document.getElementById("catchupModal").classList.remove("active");
+  const dayObj=getDayProgram(dow);
+  if(dayObj.rest || !dayObj.ex || !dayObj.ex.length){ openRestCatchupChooser(dow, val); return; }
   buildSession(dow, val);
   showView("session");
 };
+
+// Le jour à rattraper était un repos : on demande quelle séance a été faite
+function openRestCatchupChooser(dow, val){
+  const tpls=Object.entries(PROG.templates).filter(([id,t])=>!t.rest && t.ex && t.ex.length);
+  if(!tpls.length){ showToast("Aucune séance à rattraper. Crée-en une dans Réglages."); return; }
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
+  ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;">
+    <h3 style="margin:0 0 6px;">Quelle séance ?</h3>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 12px;">Ce jour-là était un repos dans ton programme. Choisis la séance que tu as faite.</p>
+    ${tpls.map(([id,t])=>`<button class="btn btn-ghost" data-tpl="${id}" style="margin-bottom:8px;justify-content:flex-start;">${t.name}</button>`).join("")}
+    <button class="btn btn-ghost" data-close style="margin-top:6px;">Annuler</button>
+  </div>`;
+  ov.addEventListener("click",e=>{
+    const b=e.target.closest("[data-tpl]");
+    if(b){ const t=PROG.templates[b.dataset.tpl]; ov.remove(); buildSession(dow, val, t); showView("session"); return; }
+    if(e.target===ov || e.target.closest("[data-close]")) ov.remove();
+  });
+  document.body.appendChild(ov);
+}
 function parseImportText(text){
   return text.split("\n").map(l=>l.trim()).filter(Boolean).map(line=>{
     const idx=line.indexOf(":");
@@ -1972,7 +1994,7 @@ function buildSession(overrideDow, overrideDate, customDay){
   sessionDow = overrideDow!=null ? overrideDow : null;
   sessionDateOverride = overrideDate || null;
   const day=customDay || getDayProgram(dow); sessionDay=day; currentSessionEntries=[];
-  document.getElementById("sessDayPill").textContent = customDay ? "Composée" : (overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : DAY_NAMES[dow]);
+  document.getElementById("sessDayPill").textContent = overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : (customDay ? "Composée" : DAY_NAMES[dow]);
   document.getElementById("sessTitle").textContent=day.name;
   const list=document.getElementById("sessList"); list.innerHTML="";
   day.ex.forEach((ex,i)=>{
