@@ -1012,7 +1012,7 @@ function notifyChallenge(id){
   if(!sb) return;
   sb.functions.invoke("notify-challenge",{body:{challenge_id:id}}).then(r=>{ if(r.error) console.warn(r.error); });
 }
-async function afterLogin(user, isNew){
+async function afterLogin(user, isNew, isSignup){
   currentUser=user;
   hideAuth();
   // Les données locales ne doivent jamais passer dans un autre compte
@@ -1032,7 +1032,9 @@ async function afterLogin(user, isNew){
   renderHome();
   const acc=document.getElementById("accountInfo");
   if(acc) acc.textContent="Connecté : "+getUsername(user)+" ("+user.email+")";
-  if(isNew){ showWelcome(user); pendingOnboarding=true; }
+  if(isNew) showWelcome(user);
+  // Le formulaire de programme ne s'affiche qu'à la vraie création de compte, jamais à une connexion
+  if(isSignup && !settings.onboarded) pendingOnboarding=true;
 }
 let authMode="login";
 function setAuthMode(m){
@@ -1074,7 +1076,7 @@ async function doSignUp(){
     showAuth(msg.includes("database") ? "Ce pseudo est déjà pris. Essaie-en un autre." : "Erreur : "+error.message);
     return;
   }
-  if(data.session) afterLogin(data.session.user, true);
+  if(data.session) afterLogin(data.session.user, true, true);
   else showAuth("Compte créé. Connecte-toi maintenant.");
 }
 async function doReset(){
