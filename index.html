@@ -931,10 +931,11 @@ async function pushSessions(s){
   const {error}=await sb.from("sessions").upsert(rows);
   if(error) console.warn("sync sessions:", error);
 }
-async function pushSettings(){
+async function pushSettings(withProg){
   if(!currentUser || !sb) return;
   const {bgImage, ...st}=loadSettings();
-  const data={...st, customEx: loadCustom(), prog: PROG};
+  const data={...st, customEx: loadCustom()};
+  if(withProg) data.prog=PROG;
   const {error}=await sb.from("settings").upsert({data:data}, {onConflict:"user_id"});
   if(error) console.warn("sync settings:", error);
 }
@@ -1419,7 +1420,7 @@ document.getElementById("redoProgBtn").onclick=()=>{
 document.getElementById("saveProgBtn").onclick=async()=>{
   saveProgramData(PROG);
   if(!currentUser){ showToast("Programme enregistré sur ce téléphone."); return; }
-  await pushSettings();
+  await pushSettings(true);
   showToast("Programme enregistré dans ton compte.");
 };
 
@@ -1513,6 +1514,7 @@ function finishOnboarding(goal, level, days, names){
   const notif={}; for(let d=0; d<7; d++) notif[d]=days.includes(d);
   settings.notifEnabled=notif;
   saveSettings(settings);
+  if(days.length) pushSettings(true);
   document.getElementById("onbModal").classList.remove("active");
   renderHome(); renderTemplateSelect(); renderProgExList(); renderDayMapList();
   showToast(days.length ? "Programme prêt. Tu peux le modifier dans Réglages." : "Tu pourras choisir tes jours dans Réglages.");
