@@ -1434,16 +1434,24 @@ const ONB_FOCUS={
   haut:{label:"Haut du corps", A:["pompes","pompesDiamant","pompesSurel","GAIN"], B:["pompesLentes","pompesSurel","crunch","GAIN"]},
   bas:{label:"Jambes et fessiers", A:["squats","fentes","mollets"], B:["bulgares","fentes","GAIN"]}
 };
-function onbExercise(key, level){
-  if(key==="GAIN") return {n:"Gainage", range:"30–60 sec", sets:3, timed:true, dur:30};
-  return {n:ONB_EX[key], range:level.range, sets:level.sets};
+const ONB_SUGGEST={
+  full:["Pompes classiques","Squats","Fentes avant","Gainage","Crunchs"],
+  haut:["Pompes classiques","Pompes diamant","Pompes pieds surélevés","Gainage","Crunchs"],
+  bas:["Squats","Fentes avant","Squats bulgares","Mollets debout"]
+};
+function onbExercise(name, level){
+  if(isTimedName(name)) return {n:name, range:"30–60 sec", sets:3, timed:true, dur:30};
+  return {n:name, range:level.range, sets:level.sets};
 }
-function buildOnboardingProgram(goal, level, days){
-  const f=ONB_FOCUS[goal]||ONB_FOCUS.full;
+// Les exercices choisis par la personne sont répartis en séance A et B, en alternance
+function buildOnboardingProgram(goal, level, days, names){
   const lv=ONB_LEVEL_SETTINGS[level]||ONB_LEVEL_SETTINGS.debutant;
+  const list=names.length?names:(ONB_SUGGEST[goal]||ONB_SUGGEST.full);
+  const a=list.filter((_,i)=>i%2===0), b=list.filter((_,i)=>i%2===1);
+  const focusLabel=(ONB_FOCUS[goal]||ONB_FOCUS.full).label;
   const templates={
-    t_onb_A:{name:f.label+" · A", ex:f.A.map(k=>onbExercise(k,lv))},
-    t_onb_B:{name:f.label+" · B", ex:f.B.map(k=>onbExercise(k,lv))},
+    t_onb_A:{name:focusLabel+" · A", ex:(a.length?a:list).map(n=>onbExercise(n,lv))},
+    t_onb_B:{name:focusLabel+" · B", ex:(b.length?b:list).map(n=>onbExercise(n,lv))},
     t_onb_repos:{name:"Repos", rest:true}
   };
   const dayMap={};
@@ -1453,28 +1461,45 @@ function buildOnboardingProgram(goal, level, days){
   return {templates, dayMap};
 }
 function showOnboarding(){
-  const sel={days:[], goal:"full", level:"debutant"};
+  const sel={days:[], goal:"full", level:"debutant", exercises:[...ONB_SUGGEST.full]};
   const chips=(el, items, key, multi)=>{
     el.innerHTML=items.map(([v,l])=>`<button class="chip${(multi?sel[key].includes(v):sel[key]===v)?" on":""}" data-v="${v}">${l}</button>`).join("");
     el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
       const v=isNaN(b.dataset.v)?b.dataset.v:parseInt(b.dataset.v);
       if(multi){ sel[key]=sel[key].includes(v)?sel[key].filter(x=>x!==v):[...sel[key],v]; }
       else sel[key]=v;
+      if(key==="goal"){ sel.exercises=[...(ONB_SUGGEST[v]||ONB_SUGGEST.full)]; renderOnbEx(); }
       chips(el, items, key, multi);
     });
   };
+  function renderOnbEx(){
+    const el=document.getElementById("onbEx");
+    el.innerHTML=ZONES_ORDER.map(z=>{
+      const list=CATALOG.filter(e=>e.zone===z);
+      if(!list.length) return "";
+      return `<div style="margin-bottom:10px;"><div class="streak-lbl" style="margin:4px 0 6px;">${z}</div><div class="chips">${list.map(e=>`<button class="chip${sel.exercises.includes(e.n)?" on":""}" data-n="${e.n.replace(/"/g,'&quot;')}">${e.n}</button>`).join("")}</div></div>`;
+    }).join("");
+    el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+      const n=b.dataset.n;
+      sel.exercises = sel.exercises.includes(n) ? sel.exercises.filter(x=>x!==n) : [...sel.exercises,n];
+      renderOnbEx();
+    });
+  }
   chips(document.getElementById("onbDays"), ONB_DAYS, "days", true);
   chips(document.getElementById("onbGoal"), ONB_GOALS, "goal", false);
   chips(document.getElementById("onbLevel"), ONB_LEVELS, "level", false);
+  renderOnbEx();
   document.getElementById("onbModal").classList.add("active");
   document.getElementById("onbSave").onclick=()=>{
     if(!sel.days.length){ showToast("Choisis au moins un jour, ou passe pour l'instant."); return; }
-    finishOnboarding(sel.goal, sel.level, sel.days);
+    if(!sel.exercises.length){ showToast("Choisis au moins un exercice."); return; }
+    const ordered=CATALOG.map(e=>e.n).filter(n=>sel.exercises.includes(n));
+    finishOnboarding(sel.goal, sel.level, sel.days, ordered);
   };
-  document.getElementById("onbSkip").onclick=()=>finishOnboarding("full","debutant",[]);
+  document.getElementById("onbSkip").onclick=()=>finishOnboarding("full","debutant",[],[]);
 }
-function finishOnboarding(goal, level, days){
-  PROG=buildOnboardingProgram(goal, level, days);
+function finishOnboarding(goal, level, days, names){
+  PROG=buildOnboardingProgram(goal, level, days, names);
   saveProgramData(PROG);
   selectedTemplateId=null;
   settings.onboarded=true;
@@ -2577,6 +2602,8 @@ renderHome();
     <div id="onbGoal" class="chips"></div>
     <div class="section-title">Niveau</div>
     <div id="onbLevel" class="chips"></div>
+    <div class="section-title">Exercices</div>
+    <div id="onbEx"></div>
     <button class="btn btn-primary" id="onbSave" style="width:100%;margin-top:16px;">Enregistrer</button>
     <button class="btn btn-ghost" id="onbSkip" style="width:100%;margin-top:8px;">Passer pour l'instant</button>
   </div>
