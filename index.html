@@ -357,6 +357,7 @@ select option{background:var(--bg1);color:var(--text);}
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
       <button class="btn btn-primary" id="saveProgBtn" style="width:100%;margin:14px 0 6px;">Enregistrer le programme</button>
+      <button class="btn btn-ghost" id="redoProgBtn" style="width:100%;margin-bottom:10px;">Refaire mon programme (jours, objectif, exercices)</button>
       <div class="section-title">Objectif du mois</div>
       <select id="goalEx" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
       <input id="goalTarget" type="number" min="1" placeholder="Nombre à atteindre ce mois-ci" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;">
@@ -1411,6 +1412,10 @@ async function handleShareLink(){
   showToast("Séance ajoutée à tes séances.");
 }
 document.getElementById("shareBtn").onclick=openShareSheet;
+document.getElementById("redoProgBtn").onclick=()=>{
+  if(!confirm("Cela remplace ton programme actuel par celui que tu vas construire. Continuer ?")) return;
+  showOnboarding();
+};
 document.getElementById("saveProgBtn").onclick=async()=>{
   saveProgramData(PROG);
   if(!currentUser){ showToast("Programme enregistré sur ce téléphone."); return; }
