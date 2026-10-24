@@ -1440,6 +1440,10 @@ const ONB_FOCUS={
   haut:{label:"Haut du corps", A:["pompes","pompesDiamant","pompesSurel","GAIN"], B:["pompesLentes","pompesSurel","crunch","GAIN"]},
   bas:{label:"Jambes et fessiers", A:["squats","fentes","mollets"], B:["bulgares","fentes","GAIN"]}
 };
+// Modèles prêts à l'emploi, à choisir dans le formulaire de programme
+const PRESET_MODELS=[
+  {id:"prog4", name:"Mon programme 4 jours", build:()=>({templates:JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)), dayMap:{...DEFAULT_DAY_MAP}})}
+];
 const ONB_SUGGEST={
   full:["Pompes classiques","Squats","Fentes avant","Gainage","Crunchs"],
   haut:["Pompes classiques","Pompes diamant","Pompes pieds surélevés","Gainage","Crunchs"],
@@ -1467,7 +1471,7 @@ function buildOnboardingProgram(goal, level, days, names){
   return {templates, dayMap};
 }
 function showOnboarding(){
-  const sel={days:[], goal:"full", level:"debutant", exercises:[...ONB_SUGGEST.full]};
+  const sel={days:[], goal:"full", level:"debutant", exercises:[...ONB_SUGGEST.full], model:""};
   const chips=(el, items, key, multi)=>{
     el.innerHTML=items.map(([v,l])=>`<button class="chip${(multi?sel[key].includes(v):sel[key]===v)?" on":""}" data-v="${v}">${l}</button>`).join("");
     el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
@@ -1491,12 +1495,20 @@ function showOnboarding(){
       renderOnbEx();
     });
   }
+  chips(document.getElementById("onbModels"), [["","Aucun, je construis"], ...PRESET_MODELS.map(m=>[m.id,m.name])], "model", false);
   chips(document.getElementById("onbDays"), ONB_DAYS, "days", true);
   chips(document.getElementById("onbGoal"), ONB_GOALS, "goal", false);
   chips(document.getElementById("onbLevel"), ONB_LEVELS, "level", false);
   renderOnbEx();
   document.getElementById("onbModal").classList.add("active");
   document.getElementById("onbSave").onclick=()=>{
+    if(sel.model){
+      const m=PRESET_MODELS.find(x=>x.id===sel.model);
+      const p=m.build();
+      const days=DAY_ORDER.filter(d=>{ const t=p.templates[p.dayMap[d]]; return t && !t.rest; });
+      finishOnboarding(sel.goal, sel.level, days, [], p);
+      return;
+    }
     if(!sel.days.length){ showToast("Choisis au moins un jour, ou passe pour l'instant."); return; }
     if(!sel.exercises.length){ showToast("Choisis au moins un exercice."); return; }
     const ordered=CATALOG.map(e=>e.n).filter(n=>sel.exercises.includes(n));
@@ -1504,8 +1516,8 @@ function showOnboarding(){
   };
   document.getElementById("onbSkip").onclick=()=>finishOnboarding("full","debutant",[],[]);
 }
-function finishOnboarding(goal, level, days, names){
-  PROG=buildOnboardingProgram(goal, level, days, names);
+function finishOnboarding(goal, level, days, names, preset){
+  PROG=preset || buildOnboardingProgram(goal, level, days, names);
   saveProgramData(PROG);
   selectedTemplateId=null;
   settings.onboarded=true;
@@ -2603,6 +2615,8 @@ renderHome();
   <div class="glass modal" style="text-align:left;max-width:440px;">
     <h3 style="margin:0 0 6px;font-size:22px;line-height:1.2;">Ton programme</h3>
     <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Quelques réponses pour te proposer des séances adaptées. Tu peux tout changer plus tard dans Réglages.</p>
+    <div class="section-title">Partir d'un modèle</div>
+    <div id="onbModels" class="chips"></div>
     <div class="section-title">Jours d'entraînement</div>
     <div id="onbDays" class="chips"></div>
     <div class="section-title">Objectif</div>
