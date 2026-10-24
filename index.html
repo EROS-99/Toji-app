@@ -1028,15 +1028,18 @@ async function afterLogin(user, isNew, isSignup){
   if(owner!==user.id){
     let accountHasData=false;
     if(!owner && sb){
-      const {count}=await sb.from("sessions").select("id",{count:"exact",head:true});
-      accountHasData = (count||0)>0;
+      try{
+        const {count}=await sb.from("sessions").select("id",{count:"exact",head:true});
+        accountHasData = (count||0)>0;
+      }catch(e){ accountHasData=false; }
     }
     if(owner || accountHasData){
       localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_CUSTOM); localStorage.removeItem(LS_SET);
     }
     localStorage.setItem("toji_owner", user.id);
   }
-  await pullFromCloud();
+  renderHome();
+  try{ await pullFromCloud(); }catch(e){ console.warn("sync:", e); }
   renderHome();
   const acc=document.getElementById("accountInfo");
   if(acc) acc.textContent="Connecté : "+getUsername(user)+" ("+user.email+")";
@@ -1580,13 +1583,27 @@ document.getElementById("exportBtn").onclick=exportBackup;
 document.getElementById("logoutBtn").onclick=doLogout;
 
 // Démarrage : si déjà connecté, on synchronise ; sinon on affiche la connexion
+// Hors ligne : on ouvre l'app avec le dernier compte connecté sur ce téléphone
+function goOffline(){
+  const owner=localStorage.getItem("toji_owner");
+  if(!owner) return false;
+  currentUser={id:owner};
+  hideAuth();
+  renderHome();
+  return true;
+}
 if(sb){
-  sb.auth.getSession().then(({data})=>{
+  const withTimeout=(p,ms)=>Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);
+  withTimeout(sb.auth.getSession(), 4000).then(({data})=>{
     if(data.session) afterLogin(data.session.user);
+    else if(!navigator.onLine && goOffline()) return;
     else showAuth("");
+  }).catch(()=>{
+    if(!goOffline()) showAuth("Connecte-toi une fois en ligne pour utiliser TOJI hors ligne.");
   });
 } else {
   console.warn("Supabase indisponible : mode hors ligne");
+  goOffline();
 }
 
 // INSTALLATION DE L'APP
