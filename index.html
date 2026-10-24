@@ -357,7 +357,9 @@ select option{background:var(--bg1);color:var(--text);}
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
       <button class="btn btn-primary" id="saveProgBtn" style="width:100%;margin:14px 0 6px;">Enregistrer le programme</button>
-      <button class="btn btn-ghost" id="redoProgBtn" style="width:100%;margin-bottom:10px;">Refaire mon programme (jours, objectif, exercices)</button>
+      <div class="section-title">Modèles de programme</div>
+      <select id="presetSel" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
+      <button class="btn btn-ghost" id="presetBtn" style="width:100%;margin-bottom:10px;">Charger ce modèle</button>
       <div class="section-title">Objectif du mois</div>
       <select id="goalEx" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
       <input id="goalTarget" type="number" min="1" placeholder="Nombre à atteindre ce mois-ci" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;">
@@ -909,7 +911,7 @@ function showView(id, fromDrag){
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
   if(id==="defis") loadDefis();
-  if(id==="settings"){ loadShareInbox(); renderGoalSettings(); }
+  if(id==="settings"){ loadShareInbox(); renderGoalSettings(); renderPresetSelect(); }
 }
 
 // COMPTE ET SYNCHRONISATION (Supabase)
@@ -1257,11 +1259,30 @@ function openCalendar(){
   };
   ov.querySelector("#calPrev").onclick=()=>{ cur=new Date(cur.getFullYear(), cur.getMonth()-1, 1); draw(); };
   ov.querySelector("#calNext").onclick=()=>{ cur=new Date(cur.getFullYear(), cur.getMonth()+1, 1); draw(); };
-  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) ov.remove(); });
-  document.body.appendChild(ov);
+  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov); });
+  openOverlay(ov);
   draw();
 }
 document.getElementById("streakBtn").onclick=openCalendar;
+
+// Bouton retour du téléphone : ferme d'abord la fenêtre ouverte
+function openOverlay(ov){
+  ov.setAttribute("data-ov","1");
+  document.body.appendChild(ov);
+  history.pushState({toji:"ov"}, "");
+}
+function closeOverlay(ov){
+  if(!ov || !ov.isConnected) return;
+  const wasTop=history.state && history.state.toji==="ov";
+  ov.remove();
+  if(wasTop) history.back();
+}
+window.addEventListener("popstate", ()=>{
+  const ovs=[...document.querySelectorAll("[data-ov]")];
+  if(ovs.length){ ovs[ovs.length-1].remove(); return; }
+  const onb=document.getElementById("onbModal");
+  if(onb && onb.classList.contains("active")){ onb.classList.remove("active"); }
+});
 
 // OBJECTIF DU MOIS : un nombre à atteindre sur un exercice, suivi par un cercle
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -1339,8 +1360,8 @@ function openShareSheet(){
     <div id="shLinkBox" style="font-size:12px;word-break:break-all;margin-top:8px;"></div>
     <button class="btn btn-ghost" data-close style="margin-top:12px;">Fermer</button>
   </div>`;
-  document.body.appendChild(ov);
-  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) ov.remove(); });
+  openOverlay(ov);
+  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov); });
 
   ov.querySelector("#shSend").onclick=async()=>{
     const p=ov.querySelector("#shPseudo").value.trim();
@@ -1354,7 +1375,7 @@ function openShareSheet(){
     });
     if(e2){ showToast("Erreur : "+e2.message); return; }
     showToast("Séance envoyée à "+found[0].username+" !");
-    ov.remove();
+    closeOverlay(ov);
   };
 
   ov.querySelector("#shLink").onclick=async()=>{
@@ -1413,9 +1434,20 @@ async function handleShareLink(){
   showToast("Séance ajoutée à tes séances.");
 }
 document.getElementById("shareBtn").onclick=openShareSheet;
-document.getElementById("redoProgBtn").onclick=()=>{
-  if(!confirm("Cela remplace ton programme actuel par celui que tu vas construire. Continuer ?")) return;
-  showOnboarding();
+function renderPresetSelect(){
+  const sel=document.getElementById("presetSel"); if(!sel) return;
+  sel.innerHTML=PRESET_MODELS.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
+}
+document.getElementById("presetBtn").onclick=async()=>{
+  const m=PRESET_MODELS.find(x=>x.id===document.getElementById("presetSel").value);
+  if(!m){ showToast("Choisis un modèle."); return; }
+  if(!confirm("Charger « "+m.name+" » remplace ton programme actuel. Continuer ?")) return;
+  PROG=m.build();
+  saveProgramData(PROG);
+  selectedTemplateId=null;
+  renderHome(); renderTemplateSelect(); renderProgExList(); renderDayMapList();
+  if(currentUser) await pushSettings(true);
+  showToast("Modèle chargé.");
 };
 document.getElementById("saveProgBtn").onclick=async()=>{
   saveProgramData(PROG);
@@ -1501,6 +1533,7 @@ function showOnboarding(){
   chips(document.getElementById("onbLevel"), ONB_LEVELS, "level", false);
   renderOnbEx();
   document.getElementById("onbModal").classList.add("active");
+  history.pushState({toji:"onb"}, "");
   document.getElementById("onbSave").onclick=()=>{
     if(sel.model){
       const m=PRESET_MODELS.find(x=>x.id===sel.model);
@@ -1528,6 +1561,7 @@ function finishOnboarding(goal, level, days, names, preset){
   saveSettings(settings);
   if(days.length) pushSettings(true);
   document.getElementById("onbModal").classList.remove("active");
+  if(history.state && history.state.toji==="onb") history.back();
   renderHome(); renderTemplateSelect(); renderProgExList(); renderDayMapList();
   showToast(days.length ? "Programme prêt. Tu peux le modifier dans Réglages." : "Tu pourras choisir tes jours dans Réglages.");
 }
@@ -2003,10 +2037,10 @@ function openRestCatchupChooser(dow, val){
   </div>`;
   ov.addEventListener("click",e=>{
     const b=e.target.closest("[data-tpl]");
-    if(b){ const t=PROG.templates[b.dataset.tpl]; ov.remove(); buildSession(dow, val, t); showView("session"); return; }
-    if(e.target===ov || e.target.closest("[data-close]")) ov.remove();
+    if(b){ const t=PROG.templates[b.dataset.tpl]; closeOverlay(ov); buildSession(dow, val, t); showView("session"); return; }
+    if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov);
   });
-  document.body.appendChild(ov);
+  openOverlay(ov);
 }
 function parseImportText(text){
   return text.split("\n").map(l=>l.trim()).filter(Boolean).map(line=>{
@@ -2278,10 +2312,10 @@ function openStatPicker(){
     <button class="btn btn-ghost" data-close style="margin-top:6px;">Fermer</button></div>`;
   ov.onclick=(e)=>{
     const b=e.target.closest("[data-pick]");
-    if(b){ localStorage.setItem("toji_rep_stat", b.dataset.pick); renderReport(); ov.remove(); return; }
-    if(e.target===ov || e.target.closest("[data-close]")) ov.remove();
+    if(b){ localStorage.setItem("toji_rep_stat", b.dataset.pick); renderReport(); closeOverlay(ov); return; }
+    if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov);
   };
-  document.body.appendChild(ov);
+  openOverlay(ov);
 }
 
 // SETTINGS: notifications
@@ -2611,7 +2645,7 @@ renderTemplateSelect();
 renderProgExList();
 renderHome();
 </script>
-<div class="modal-bg" id="onbModal" style="z-index:260;">
+<div class="modal-bg" id="onbModal" style="z-index:260;overflow-y:auto;overscroll-behavior:contain;align-items:flex-start;padding:24px 14px;">
   <div class="glass modal" style="text-align:left;max-width:440px;">
     <h3 style="margin:0 0 6px;font-size:22px;line-height:1.2;">Ton programme</h3>
     <p style="color:var(--sub);font-size:13px;margin:0 0 14px;">Quelques réponses pour te proposer des séances adaptées. Tu peux tout changer plus tard dans Réglages.</p>
