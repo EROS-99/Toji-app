@@ -1293,6 +1293,20 @@ window.addEventListener("popstate", ()=>{
 
 // OBJECTIF DU MOIS : un nombre à atteindre sur un exercice, suivi par un cercle
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+// Familles : toutes les variantes comptent ensemble (pompes, squats et fentes, gainage)
+const FAMILIES={
+  pompes:{label:"Pompes (toutes)", re:/pompe|push/i, timed:false},
+  squats:{label:"Squats et fentes (tous)", re:/squat|fente/i, timed:false},
+  gainage:{label:"Gainage (tous)", re:/gainage|planche/i, timed:true}
+};
+function labelOf(key){ return key.startsWith("fam:") ? FAMILIES[key.slice(4)].label : key; }
+function matchesKey(key, name){
+  if(key.startsWith("fam:")){ const f=FAMILIES[key.slice(4)]; return !!f && f.re.test(name); }
+  return key===name;
+}
+function isTimedKey(key){
+  return key.startsWith("fam:") ? FAMILIES[key.slice(4)].timed : isTimedName(key);
+}
 function isTimedName(n){ const l=n.toLowerCase(); return l.includes("gainage")||l.includes("planche"); }
 function renderGoal(sessions){
   const arc=document.getElementById("goalArc"); if(!arc) return;
@@ -1311,21 +1325,21 @@ function renderGoal(sessions){
     return;
   }
   if(g.month!==mk){
-    set("Nouvel objectif","Renouvelle-le pour "+monthName,"Précédent : "+g.target+" avec "+g.ex,"");
+    set("Nouvel objectif","Renouvelle-le pour "+monthName,"Précédent : "+g.target+" avec "+labelOf(g.ex),"");
     return;
   }
   let total=0;
   sessions.filter(s=>!s.skip && monthKey(new Date(s.date))===mk).forEach(s=>s.entries.forEach(e=>{
-    if(e.name===g.ex) e.values.forEach(v=>{ if(v) total+=v; });
+    if(matchesKey(g.ex, e.name)) e.values.forEach(v=>{ if(v) total+=v; });
   }));
-  const unit=isTimedName(g.ex)?" s":" reps";
+  const unit=isTimedKey(g.ex)?" s":" reps";
   const pct=Math.round(total/g.target*100);
-  set("Objectif · "+monthName, total+" / "+g.target+unit, g.ex, pct+"%");
+  set("Objectif · "+monthName, total+" / "+g.target+unit, labelOf(g.ex), pct+"%");
 }
 function renderGoalSettings(){
   const sel=document.getElementById("goalEx"); if(!sel) return;
-  const names=[...new Set(CATALOG.map(e=>e.n))].sort((a,b)=>a.localeCompare(b,"fr"));
-  sel.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join("");
+  const names=[...Object.keys(FAMILIES).map(k=>"fam:"+k), ...[...new Set(CATALOG.map(e=>e.n))].sort((a,b)=>a.localeCompare(b,"fr"))];
+  sel.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("");
   if(settings.monthGoal && settings.monthGoal.ex) sel.value=settings.monthGoal.ex;
   const t=document.getElementById("goalTarget");
   if(settings.monthGoal && settings.monthGoal.target) t.value=settings.monthGoal.target;
@@ -2264,7 +2278,7 @@ function repRange(per){
 function renderReport(){
   renderExerciseCharts();
   const per=localStorage.getItem("toji_rep_per")==="month"?"month":"week";
-  const stat=localStorage.getItem("toji_rep_stat")||"Gainage";
+  const stat=localStorage.getItem("toji_rep_stat")||"fam:gainage";
   const {start,prevStart,prevEnd,today}=repRange(per);
   document.getElementById("repTitle").textContent = per==="month"?"Rapport mensuel":"Rapport hebdomadaire";
   document.querySelectorAll("#repSeg button").forEach(b=>b.classList.toggle("on", b.dataset.per===per));
@@ -2286,11 +2300,11 @@ function renderReport(){
   // Total de la période pour l'exercice choisi (somme des répétitions ou des secondes)
   let total=0;
   done.forEach(s=>s.entries.forEach(e=>{
-    if(e.name===stat) e.values.forEach(v=>{ if(v) total+=v; });
+    if(matchesKey(stat, e.name)) e.values.forEach(v=>{ if(v) total+=v; });
   }));
-  const isTime=stat.toLowerCase().includes("gainage")||stat.toLowerCase().includes("planche");
+  const isTime=isTimedKey(stat);
   document.getElementById("repPlank").textContent = total + (isTime?"s":"");
-  document.getElementById("repStatLabel").textContent = "total " + stat.toLowerCase();
+  document.getElementById("repStatLabel").textContent = "total " + labelOf(stat).toLowerCase();
 
   // Meilleure série par exercice : période en cours et période précédente
   const maxByExercise=(list)=>{
@@ -2324,12 +2338,12 @@ function renderReport(){
 
 // Choix de l'exercice affiché dans la 3e carte du rapport
 function openStatPicker(){
-  const names=[...new Set(CATALOG.map(e=>e.n))];
+  const names=[...Object.keys(FAMILIES).map(k=>"fam:"+k), ...[...new Set(CATALOG.map(e=>e.n))]];
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;max-height:75vh;overflow:auto;">
     <h3 style="margin:0 0 12px;">Choisir l'exercice</h3>
-    ${names.map(n=>`<button class="btn btn-ghost" data-pick="${n.replace(/"/g,'&quot;')}" style="margin-bottom:8px;justify-content:flex-start;">${n}</button>`).join("")}
+    ${names.map(n=>`<button class="btn btn-ghost" data-pick="${n.replace(/"/g,'&quot;')}" style="margin-bottom:8px;justify-content:flex-start;">${labelOf(n)}</button>`).join("")}
     <button class="btn btn-ghost" data-close style="margin-top:6px;">Fermer</button></div>`;
   ov.onclick=(e)=>{
     const b=e.target.closest("[data-pick]");
