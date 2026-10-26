@@ -1299,6 +1299,19 @@ const FAMILIES={
   squats:{label:"Squats et fentes (tous)", re:/squat|fente/i, timed:false},
   gainage:{label:"Gainage (tous)", re:/gainage|planche/i, timed:true}
 };
+// Regroupe les choix par groupe : familles, puis chaque zone du catalogue
+function groupedChoices(){
+  const groups=[{label:"Groupes", items:Object.keys(FAMILIES).map(k=>"fam:"+k)}];
+  const zones=[...ZONES_ORDER];
+  CATALOG.forEach(e=>{ if(e.zone && !zones.includes(e.zone)) zones.push(e.zone); });
+  zones.forEach(z=>{
+    const items=[...new Set(CATALOG.filter(e=>e.zone===z).map(e=>e.n))];
+    if(items.length) groups.push({label:z, items});
+  });
+  const rest=[...new Set(CATALOG.filter(e=>!e.zone).map(e=>e.n))];
+  if(rest.length) groups.push({label:"Autres", items:rest});
+  return groups;
+}
 function labelOf(key){ return key.startsWith("fam:") ? FAMILIES[key.slice(4)].label : key; }
 function matchesKey(key, name){
   if(key.startsWith("fam:")){ const f=FAMILIES[key.slice(4)]; return !!f && f.re.test(name); }
@@ -1338,8 +1351,9 @@ function renderGoal(sessions){
 }
 function renderGoalSettings(){
   const sel=document.getElementById("goalEx"); if(!sel) return;
-  const names=[...Object.keys(FAMILIES).map(k=>"fam:"+k), ...[...new Set(CATALOG.map(e=>e.n))].sort((a,b)=>a.localeCompare(b,"fr"))];
-  sel.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("");
+  sel.innerHTML=groupedChoices().map(g=>
+    `<optgroup label="${g.label}">${g.items.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("")}</optgroup>`
+  ).join("");
   if(settings.monthGoal && settings.monthGoal.ex) sel.value=settings.monthGoal.ex;
   const t=document.getElementById("goalTarget");
   if(settings.monthGoal && settings.monthGoal.target) t.value=settings.monthGoal.target;
@@ -2291,7 +2305,8 @@ function renderReport(){
   // Jours passés de la période sans séance, hors jours de repos
   const doneKeys=new Set(inPeriod.map(s=>new Date(s.date).toDateString()));
   let missed=0;
-  for(let d=new Date(start); d<=today; d.setDate(d.getDate()+1)){
+  // Aujourd'hui ne compte pas comme manquée tant que la journée n'est pas finie
+  for(let d=new Date(start); d<today; d.setDate(d.getDate()+1)){
     if(getDayProgram(d.getDay()).rest) continue;
     if(!doneKeys.has(d.toDateString())) missed++;
   }
@@ -2338,12 +2353,11 @@ function renderReport(){
 
 // Choix de l'exercice affiché dans la 3e carte du rapport
 function openStatPicker(){
-  const names=[...Object.keys(FAMILIES).map(k=>"fam:"+k), ...[...new Set(CATALOG.map(e=>e.n))]];
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;max-height:75vh;overflow:auto;">
     <h3 style="margin:0 0 12px;">Choisir l'exercice</h3>
-    ${names.map(n=>`<button class="btn btn-ghost" data-pick="${n.replace(/"/g,'&quot;')}" style="margin-bottom:8px;justify-content:flex-start;">${labelOf(n)}</button>`).join("")}
+    ${groupedChoices().map(g=>`<div class="streak-lbl" style="margin:10px 0 6px;">${g.label}</div>`+g.items.map(n=>`<button class="btn btn-ghost" data-pick="${n.replace(/"/g,'&quot;')}" style="margin-bottom:8px;justify-content:flex-start;">${labelOf(n)}</button>`).join("")).join("")}
     <button class="btn btn-ghost" data-close style="margin-top:6px;">Fermer</button></div>`;
   ov.onclick=(e)=>{
     const b=e.target.closest("[data-pick]");
