@@ -172,6 +172,7 @@ select option{background:var(--bg1);color:var(--text);}
 body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 *{-webkit-tap-highlight-color:transparent;}
+#sessList{padding-bottom:120px;}
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
 .seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
@@ -2059,6 +2060,11 @@ function finishSession(){
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
 document.getElementById("sessList").addEventListener("click", saveActiveSession);
+// Quand le clavier s'ouvre, la série touchée remonte au centre de l'écran (sinon le clavier la cache)
+document.getElementById("sessList").addEventListener("focusin", e=>{
+  if(e.target.tagName!=="INPUT") return;
+  setTimeout(()=>e.target.scrollIntoView({block:"center", behavior:"smooth"}), 350);
+});
 // Retour du réseau : on renvoie ce qui a été enregistré hors ligne
 window.addEventListener("online", ()=>{ if(currentUser){ pushSessions(loadSessions()); pushSettings(); } });
 document.getElementById("confirmFinishYes").onclick=()=>{ document.getElementById("confirmFinishModal").classList.remove("active"); finishSession(); };
@@ -2234,12 +2240,36 @@ function renderHistory(){
     const detail=s.entries.map(en=>`<div style="margin:4px 0;"><b style="font-size:13px;">${en.name}</b><div style="font-size:12px;color:var(--sub);">${en.values.map(v=>v==null?"—":v).join(" · ")}</div></div>`).join("");
     return `<div class="hist-item hist-clickable" data-i="${i}" style="cursor:pointer;"><b>${s.dayName}</b><div>${dateStr} — ${s.entries.length} exercices</div><div class="hist-detail" id="histDetail${i}" style="display:none;margin-top:10px;border-top:1px solid var(--glass-brd);padding-top:10px;">${detail}</div></div>`;
   }).join("");
+  // Bouton de suppression sur chaque séance de l'historique
+  el.querySelectorAll(".hist-item").forEach((item,i)=>{
+    const s=sessions[i];
+    const btn=document.createElement("button");
+    btn.className="btn btn-danger";
+    btn.textContent="Supprimer cette séance";
+    btn.style.cssText="margin-top:10px;width:100%;";
+    btn.onclick=(e)=>{ e.stopPropagation(); deleteSession(s); };
+    const det=document.getElementById("histDetail"+i);
+    if(item.classList.contains("hist-clickable") && det) det.appendChild(btn);
+    else item.appendChild(btn);
+  });
   el.querySelectorAll(".hist-clickable").forEach(item=>{
     item.onclick=()=>{
       const det=document.getElementById("histDetail"+item.dataset.i);
       det.style.display = det.style.display==="none" ? "block" : "none";
     };
   });
+}
+
+// Supprime une séance de l'historique (et du compte si elle y est)
+function deleteSession(s){
+  if(!confirm("Supprimer cette séance de l'historique ?")) return;
+  const all=loadSessions();
+  const idx=all.findIndex(x=> (s.id && x.id===s.id) || (!s.id && x.date===s.date && x.dayName===s.dayName));
+  if(idx<0){ showToast("Séance introuvable."); return; }
+  all.splice(idx,1);
+  saveSessions(all);
+  renderHistory(); renderHome();
+  showToast("Séance supprimée.");
 }
 
 // REPORT
