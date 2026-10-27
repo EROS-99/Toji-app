@@ -2035,6 +2035,8 @@ function clearActiveSession(){ try{ localStorage.removeItem(ACTIVE_KEY); }catch(
 function isLastSet(i,s){ return sessionDay && i===sessionDay.ex.length-1 && s===sessionDay.ex[i].sets-1; }
 function showFinishConfirm(){ document.getElementById("confirmFinishModal").classList.add("active"); }
 function finishSession(){
+  // Pas de séance en cours (déjà enregistrée) : on ne recommence pas
+  if(!sessionDay){ document.getElementById("confirmFinishModal").classList.remove("active"); return; }
   const day=sessionDay || getDayProgram(today);
   const dow = sessionDow!=null ? sessionDow : today;
   const entries=day.ex.map((ex,i)=>{
@@ -2043,6 +2045,11 @@ function finishSession(){
   });
   const sessions=loadSessions();
   const isoDate = sessionDateOverride ? new Date(sessionDateOverride+"T12:00:00").toISOString() : new Date().toISOString();
+  // Même séance, mêmes chiffres, même jour : on n'enregistre pas deux fois
+  const dup=sessions.some(s=>localKey(new Date(s.date))===localKey(new Date(isoDate)) && s.dayName===day.name && JSON.stringify(s.entries)===JSON.stringify(entries));
+  document.getElementById("confirmFinishModal").classList.remove("active");
+  sessionDay=null; currentSessionEntries=[];
+  if(dup){ clearActiveSession(); sessionDow=null; sessionDateOverride=null; showView("home"); renderHome(); showToast("Cette séance est déjà enregistrée."); return; }
   sessions.push({date:isoDate, day:dow, dayName:day.name, entries});
   saveSessions(sessions);
   clearActiveSession();
