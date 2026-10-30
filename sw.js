@@ -1,5 +1,5 @@
-const CACHE_NAME = "toji-cache-v14";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./favicon.svg", "./privacy.html", "./terms.html"];
+const CACHE_NAME = "toji-cache-v15";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./favicon.svg", "./privacy.html", "./terms.html", "./body-muscles-v4.svg"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
