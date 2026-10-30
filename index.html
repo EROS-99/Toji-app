@@ -895,17 +895,21 @@ function renderCatalogue(){
 }
 
 // NAV
-const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"catalogue",ic:ICONS.grid,label:"Catalogue"},{id:"defis",ic:ICONS.flag,label:"Défis"},{id:"history",ic:ICONS.clock,label:"Historique"},{id:"report",ic:ICONS.chart,label:"Rapport"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
+const NAVS=[{id:"home",ic:ICONS.home,label:"Accueil"},{id:"session",ic:ICONS.dumbbell,label:"Séance"},{id:"suivi",ic:ICONS.chart,label:"Suivi"},{id:"defis",ic:ICONS.flag,label:"Défis"},{id:"settings",ic:ICONS.gear,label:"Réglages"}];
 const navbar=document.getElementById("navbar");
 NAVS.forEach(n=>{
   const b=document.createElement("div"); b.className="nav-btn"+(n.id==="home"?" active":""); b.dataset.v=n.id;
   b.innerHTML=`<span class="ic">${n.ic}</span>${n.label}`;
   b.onclick=()=>showView(n.id); navbar.appendChild(b);
 });
+const NAV_OF={catalogue:"session", history:"suivi", report:"suivi", suivi:"suivi"};
 function showView(id, fromDrag){
+  if(id==="suivi") id=localStorage.getItem("toji_suivi_sub")==="history" ? "history" : "report";
+  if(id==="report" || id==="history") localStorage.setItem("toji_suivi_sub", id);
+  const navId=NAV_OF[id] || id;
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
-  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.v===id));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.v===navId));
   const inner=document.getElementById("navbar");
   const act=document.querySelector(".nav-btn.active");
   if(inner && act && !fromDrag){
@@ -916,6 +920,7 @@ function showView(id, fromDrag){
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
   if(id==="defis") loadDefis();
+  refreshSubtabs();
   if(id==="settings"){ loadShareInbox(); renderGoalSettings(); renderPresetSelect(); }
 }
 
@@ -1296,6 +1301,23 @@ function openCalendar(){
   draw();
 }
 document.getElementById("streakBtn").onclick=openCalendar;
+
+// Sous-onglets : Suivi (Rapport, Historique) et Séance (Séance, Catalogue)
+document.querySelector("#view-report").insertAdjacentHTML("afterbegin",
+  '<div class="seg subtabs"><button data-go="report">Rapport</button><button data-go="history">Historique</button></div>');
+document.querySelector("#view-history").insertAdjacentHTML("afterbegin",
+  '<div class="seg subtabs"><button data-go="report">Rapport</button><button data-go="history">Historique</button></div>');
+document.querySelector("#view-session").insertAdjacentHTML("afterbegin",
+  '<div class="seg subtabs"><button data-go="session">Séance</button><button data-go="catalogue">Catalogue</button></div>');
+document.querySelectorAll(".subtabs").forEach(bar=>{
+  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>showView(b.dataset.go));
+});
+function refreshSubtabs(){
+  document.querySelectorAll(".subtabs").forEach(bar=>{
+    const cur=document.querySelector(".view.active")?.id.replace("view-","");
+    bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.go===cur));
+  });
+}
 
 // Bouton retour du téléphone : ferme d'abord la fenêtre ouverte
 function openOverlay(ov){
