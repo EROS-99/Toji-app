@@ -1169,10 +1169,31 @@ document.getElementById("forgotBtn").onclick=()=>setAuthMode("reset");
 setAuthMode("login");
 
 
-// Palette dans Réglages
-document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
-  <div class="section-title" style="margin-top:22px;">Palette de couleurs</div>
-  <div id="paletteList" style="display:flex;flex-direction:column;gap:8px;"></div>`);
+// Thème et couleurs : un bouton dans Réglages ouvre une fenêtre
+document.querySelector("#view-settings .glass h2").insertAdjacentHTML("afterend", `
+  <button class="btn btn-ghost" id="themeOpenBtn" style="width:100%;margin:10px 0 14px;">Thème et couleurs</button>`);
+document.body.insertAdjacentHTML("beforeend", `
+  <div class="modal-bg" id="themePop" style="z-index:270;overflow-y:auto;overscroll-behavior:contain;align-items:flex-start;padding:24px 14px;">
+    <div class="glass modal" style="text-align:left;max-width:440px;">
+      <h3 style="margin:0 0 12px;">Thème et couleurs</h3>
+      <div class="section-title">Couleurs</div>
+      <div id="paletteList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="section-title">Photo de fond</div>
+      <button class="btn btn-ghost" id="popBgBtn">Choisir une photo</button>
+      <button class="btn btn-ghost" id="popBgReset" style="margin-top:8px;">Retirer la photo</button>
+      <button class="btn btn-primary" id="popClose" style="width:100%;margin-top:14px;">Fermer</button>
+    </div>
+  </div>`);
+document.getElementById("themeOpenBtn").onclick=()=>{
+  document.getElementById("themePop").classList.add("active");
+  history.pushState({toji:"pop"}, "");
+};
+document.getElementById("popClose").onclick=()=>{
+  document.getElementById("themePop").classList.remove("active");
+  if(history.state && history.state.toji==="pop") history.back();
+};
+document.getElementById("popBgBtn").onclick=()=>document.getElementById("bgFile").click();
+document.getElementById("popBgReset").onclick=()=>document.getElementById("bgResetBtn").click();
 renderPalettePicker();
 document.getElementById("paletteList").onclick=(e)=>{
   const b=e.target.closest("[data-pal]"); if(!b) return;
@@ -1289,6 +1310,8 @@ function closeOverlay(ov){
   if(wasTop) history.back();
 }
 window.addEventListener("popstate", ()=>{
+  const tp=document.getElementById("themePop");
+  if(tp && tp.classList.contains("active")){ tp.classList.remove("active"); return; }
   const ovs=[...document.querySelectorAll("[data-ov]")];
   if(ovs.length){ ovs[ovs.length-1].remove(); return; }
   const onb=document.getElementById("onbModal");
@@ -1609,7 +1632,6 @@ function finishOnboarding(goal, level, days, names, preset){
 document.querySelector("#view-settings .glass").insertAdjacentHTML("beforeend", `
   <div class="section-title" style="margin-top:22px;">Compte et sauvegarde</div>
   <p id="accountInfo" style="color:var(--sub);font-size:13px;">Non connecté</p>
-  <button class="btn btn-ghost" id="exportBtn" style="width:100%;margin-top:8px;">Exporter mes données (sauvegarde)</button>
   <button class="btn btn-ghost" id="logoutBtn" style="width:100%;margin-top:8px;">Se déconnecter</button>`);
 document.getElementById("exportBtn").onclick=exportBackup;
 document.getElementById("logoutBtn").onclick=doLogout;
@@ -2340,12 +2362,14 @@ async function renderExerciseCharts(){
     const label=m.charAt(0).toUpperCase()+m.slice(1).replace("-"," ");
     return `<div class="progress-row"><span>${label}</span><span>${Math.round(v/sum*100)} %</span></div>`;
   }).join("");
-  el.innerHTML=`<div style="max-width:300px;margin:0 auto;">${bodySvgText}</div><div style="margin-top:12px;">${legend}</div>`;
+  el.innerHTML=`<div style="max-width:260px;margin:0 auto;">${bodySvgText}</div><div style="margin-top:12px;">${legend}</div>`;
+  const svgEl=el.querySelector("svg");
+  if(svgEl){ svgEl.removeAttribute("width"); svgEl.removeAttribute("height"); svgEl.style.width="100%"; svgEl.style.height="auto"; svgEl.style.display="block"; }
   el.querySelectorAll("[data-muscle]").forEach(z=>{
     const k=zoneKey(z.dataset.muscle);
     const v=loads[k]||0;
     z.style.fill="var(--accent1)";
-    z.style.fillOpacity=v>0 ? (0.2+0.75*(v/max)).toFixed(2) : "0";
+    z.style.fillOpacity=v>0 ? (0.15+0.55*(v/max)).toFixed(2) : "0";
   });
 }
 function repRange(per){
