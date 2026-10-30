@@ -349,10 +349,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
         <div><b style="font-size:14px;">Repos entre séries</b><div style="font-size:12px;color:var(--sub);">Minuteur auto après chaque série</div></div>
         <input type="number" id="restSecondsInput" style="background:var(--glass);border:1px solid var(--glass-brd);border-radius:10px;padding:8px 10px;color:var(--text);width:70px;text-align:right;">
       </div>
-      <div class="section-title">Apparence</div>
-      <label class="btn btn-ghost" for="bgFile" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/><path d="M21 16l-5-5-4 4-3-3-5 5"/></svg> Changer la photo de fond</label>
-      <input type="file" id="bgFile" accept="image/*">
-      <button class="btn btn-ghost" id="bgResetBtn" style="margin-bottom:10px;">Retirer la photo de fond</button>
+      <input type="file" id="bgFile" accept="image/*" hidden>
+      <button id="bgResetBtn" hidden></button>
       <div class="settings-row">
         <div><b style="font-size:14px;">Notifications</b><div style="font-size:12px;color:var(--sub);">Autoriser les rappels</div></div>
         <label class="switch"><input type="checkbox" id="notifSwitch"><span class="slider"></span></label>
@@ -370,6 +368,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
         <button class="btn btn-ghost" id="newTemplateBtn" style="width:auto;padding:9px 14px;">+ Créer</button>
       </div>
       <button class="btn btn-primary" id="saveProgBtn" style="width:100%;margin:14px 0 6px;">Enregistrer le programme</button>
+      <button class="btn btn-ghost" id="shareBtn" style="width:100%;margin-bottom:10px;">Partager la séance sélectionnée</button>
       <div class="section-title">Modèles de programme</div>
       <select id="presetSel" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
       <button class="btn btn-ghost" id="presetBtn" style="width:100%;margin-bottom:10px;">Charger ce modèle</button>
@@ -377,7 +376,6 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
       <div id="goalSlotsBox"></div>
       <div class="section-title">Séances partagées</div>
       <div id="shareInbox"></div>
-      <button class="btn btn-ghost" id="shareBtn" style="margin-bottom:10px;">Partager la séance sélectionnée</button>
       <div class="section-title">Données</div>
       <button class="btn btn-ghost" id="resyncBtn" style="margin-bottom:10px;">Resynchroniser depuis le compte</button>
       <button class="btn btn-ghost" id="exportBtn" style="margin-bottom:10px;"><svg class="icn" viewBox="0 0 24 24"><path d="M12 4v11M8 12l4 4 4-4"/><path d="M4.5 20h15"/></svg> Exporter mes données</button>
@@ -1381,7 +1379,8 @@ function isTimedKey(key){
 function isTimedName(n){ const l=n.toLowerCase(); return l.includes("gainage")||l.includes("planche"); }
 function renderGoal(sessions){
   const arc=document.getElementById("goalArc"); if(!arc) return;
-  const g=getSlots()[0];
+  const homeIdx=settings.homeGoal||0;
+  const g=getSlots()[homeIdx];
   const now=new Date(); const mk=monthKey(now);
   const monthName=now.toLocaleDateString("fr-FR",{month:"long"});
   const set=(label,value,sub,pct)=>{
@@ -1439,7 +1438,9 @@ function renderGoalSettings(){
   const slots=getSlots();
   const opts=groupedChoices().map(g=>`<optgroup label="${g.label}">${g.items.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("")}</optgroup>`).join("");
   const field="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';";
-  box.innerHTML=[0,1,2].map(i=>{
+  const homeIdx=settings.homeGoal||0;
+  const homeOpts=[0,1,2].map(i=>`<option value="${i}"${i===homeIdx?" selected":""}>Barre ${i+1}${slots[i]&&slots[i].ex?" · "+labelOf(slots[i].ex):""}</option>`).join("");
+  box.innerHTML=`<div class="glass" style="padding:12px;margin-bottom:12px;"><div class="streak-lbl" style="margin-bottom:6px;">Objectif affiché à l'accueil</div><select id="homeGoalSel" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';">${homeOpts}</select></div>`+[0,1,2].map(i=>{
     const s=slots[i]||{};
     return `<div class="glass" style="padding:12px;margin-bottom:10px;">
       <div class="streak-lbl" style="margin-bottom:6px;">Barre ${i+1}</div>
@@ -1462,6 +1463,7 @@ function renderGoalSettings(){
       return (ex && target>0) ? {ex, target, color, month: monthKey(new Date())} : null;
     });
     settings.goalSlots=out;
+    settings.homeGoal=parseInt(document.getElementById("homeGoalSel").value)||0;
     saveSettings(settings);
     renderHome(); renderGoalBars();
     showToast("Objectifs enregistrés.");
