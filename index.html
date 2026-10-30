@@ -270,8 +270,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
       </div>
       <div class="section-title">Progression par exercice</div>
       <div id="repProgress"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
-      <div class="section-title" style="margin-top:22px;">Graphiques par exercice</div>
-      <div id="repCharts"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
+      <div class="section-title" style="margin-top:22px;">Muscles travaillés</div>
+      <div id="repBody"></div>
     </div>
   </div>
 
@@ -966,6 +966,9 @@ async function pullFromCloud(){
     const {customEx, prog, ...rest}=cloud;
     if(prog && prog.templates && prog.dayMap){ PROG=prog; saveProgramData(PROG); }
     if(Object.keys(rest).length) localStorage.setItem(LS_SET, JSON.stringify(rest));
+    // Les réglages du compte remplacent ceux du téléphone (objectif, thème, rappels…)
+    settings = loadSettings();
+    applyTheme();
   } else {
     await pushSettings();
   }
@@ -2273,48 +2276,78 @@ function deleteSession(s){
 }
 
 // REPORT
-function renderExerciseCharts(){
-  const el=document.getElementById("repCharts");
-  const sessions=loadSessions().filter(s=>!s.skip).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const byEx={};
-  sessions.forEach(sess=>{
-    sess.entries.forEach(e=>{
-      const vals=e.values.filter(v=>v!=null);
-      if(!vals.length) return;
-      if(!byEx[e.name]) byEx[e.name]=[];
-      byEx[e.name].push({date:new Date(sess.date), max:Math.max(...vals)});
-    });
-  });
-  const names=Object.keys(byEx);
-  if(!names.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p>'; return; }
-  const fmtDate=d=>String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");
-  el.innerHTML=names.map(name=>{
-    const pts=byEx[name].slice(-10);
-    const unit=name.toLowerCase().includes("gainage")?"s":"";
-    const W=300,H=130,padT=18,padB=22,padX=8;
-    const maxV=Math.max(...pts.map(p=>p.max),1);
-    const slot=(W-padX*2)/pts.length;
-    const bw=Math.min(28,slot*0.6);
-    const bars=pts.map((p,i)=>{
-      const h=((H-padT-padB)*p.max)/maxV;
-      const x=padX+i*slot+(slot-bw)/2;
-      const y=H-padB-h;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="var(--accent1)" opacity="${i===pts.length-1?1:0.55}"/>`+
-        `<text x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--text)">${p.max}${unit}</text>`+
-        `<text x="${(x+bw/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--sub)">${fmtDate(p.date)}</text>`;
-    }).join("");
-    const first=pts[0].max, last=pts[pts.length-1].max, delta=last-first;
-    const trend = pts.length<2 ? "" : delta>0?`<span class="up">▲ +${delta}${unit}</span>`:delta<0?`<span class="down">▼ ${delta}${unit}</span>`:`<span style="color:var(--sub)">= stable</span>`;
-    return `<div style="margin-bottom:18px;padding:12px;border:1px solid var(--glass-brd);border-radius:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-        <b style="font-size:14px;">${name}</b><span style="font-size:12px;">${trend}</span>
-      </div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">${bars}</svg>
-      <div style="font-size:11px;color:var(--sub);margin-top:4px;">Meilleure série par séance, ${pts.length} dernière(s)</div>
-    </div>`;
-  }).join("");
+// RÉPARTITION DES MUSCLES : chaque exercice travaille certaines zones, dans une proportion donnée
+const SHARES_BY_ZONE={
+  "Pectoraux":{pectoraux:70, triceps:20, epaules:10},
+  "Dos":{dos:60, biceps:20, trapezes:20},
+  "Épaules":{epaules:80, trapezes:20},
+  "Bras":{biceps:50, triceps:50},
+  "Jambes":{quadriceps:40, fessiers:30, "ischio-jambiers":30},
+  "Abdos":{abdos:100}
+};
+const SHARES_BY_NAME={
+  "Pompes classiques":{pectoraux:60, triceps:25, epaules:15},
+  "Pompes pieds surélevés":{pectoraux:60, triceps:25, epaules:15},
+  "Pompes lentes":{pectoraux:60, triceps:25, epaules:15},
+  "Pompes diamant":{pectoraux:40, triceps:45, epaules:15},
+  "Pike push-ups":{epaules:65, triceps:25, pectoraux:10},
+  "Élévations latérales":{epaules:80, trapezes:20},
+  "Élévations frontales":{epaules:80, trapezes:20},
+  "Squats":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
+  "Squats bulgares":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
+  "Squats pause en bas":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
+  "Fentes avant":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
+  "Gainage":{abdos:85, dos:15},
+  "Gainage latéral":{abdos:85, dos:15},
+  "Superman":{dos:85, fessiers:15},
+  "Soulevé de terre roumain":{"ischio-jambiers":40, fessiers:40, dos:20},
+  "Hip thrust":{fessiers:40, "ischio-jambiers":40, dos:20},
+  "Mollets debout":{mollets:100},
+  "Mollets à la machine":{mollets:100}
+};
+function sharesFor(name, zone){
+  if(SHARES_BY_NAME[name]) return SHARES_BY_NAME[name];
+  const n=name.toLowerCase();
+  if(zone==="Bras" && n.includes("triceps")) return {triceps:100};
+  if(zone==="Bras" && n.includes("dips")) return {triceps:100};
+  if(zone==="Dos" && n.includes("superman")) return {dos:85, fessiers:15};
+  return SHARES_BY_ZONE[zone] || {};
 }
-
+// Les zones du schéma : mollets-dos compte avec mollets
+function zoneKey(z){ return z==="mollets-dos" ? "mollets" : z; }
+let bodySvgText=null;
+async function renderExerciseCharts(){
+  const el=document.getElementById("repBody"); if(!el) return;
+  const per=localStorage.getItem("toji_rep_per")==="month"?"month":"week";
+  const {start}=repRange(per);
+  const sessions=loadSessions().filter(s=>!s.skip && new Date(s.date)>=start);
+  const loads={};
+  sessions.forEach(s=>s.entries.forEach(e=>{
+    const total=(e.values||[]).reduce((a,v)=>a+(v||0),0);
+    if(!total) return;
+    const cat=CATALOG.find(c=>c.n===e.name);
+    const sh=sharesFor(e.name, cat && cat.zone);
+    Object.entries(sh).forEach(([m,p])=>{ loads[m]=(loads[m]||0)+total*p/100; });
+  }));
+  const sum=Object.values(loads).reduce((a,v)=>a+v,0);
+  if(!sum){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore de séances sur cette période.</p>'; return; }
+  const max=Math.max(...Object.values(loads));
+  if(!bodySvgText){
+    try{ bodySvgText=await (await fetch("body-muscles-v4.svg")).text(); }
+    catch(err){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Schéma indisponible.</p>'; return; }
+  }
+  const legend=Object.entries(loads).sort((a,b)=>b[1]-a[1]).map(([m,v])=>{
+    const label=m.charAt(0).toUpperCase()+m.slice(1).replace("-"," ");
+    return `<div class="progress-row"><span>${label}</span><span>${Math.round(v/sum*100)} %</span></div>`;
+  }).join("");
+  el.innerHTML=`<div style="max-width:300px;margin:0 auto;">${bodySvgText}</div><div style="margin-top:12px;">${legend}</div>`;
+  el.querySelectorAll("[data-muscle]").forEach(z=>{
+    const k=zoneKey(z.dataset.muscle);
+    const v=loads[k]||0;
+    z.style.fill="var(--accent1)";
+    z.style.fillOpacity=v>0 ? (0.2+0.75*(v/max)).toFixed(2) : "0";
+  });
+}
 function repRange(per){
   const today=new Date(); today.setHours(0,0,0,0);
   if(per==="month"){
