@@ -173,6 +173,15 @@ body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none
 input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 *{-webkit-tap-highlight-color:transparent;}
 #sessList{padding-bottom:120px;}
+.subtabs{margin:12px 0 18px;}
+.goal-bars{display:flex;gap:14px;justify-content:space-around;align-items:flex-end;padding:8px 2px 4px;}
+.gb{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;}
+.gb-val{font-size:12px;color:var(--sub);}
+.gb-track{width:100%;max-width:70px;height:200px;border-radius:14px;background:var(--glass);border:1px solid var(--glass-brd);display:flex;align-items:flex-end;overflow:hidden;}
+.gb-fill{width:100%;border-radius:0 0 13px 13px;transition:height .4s;}
+.gb-name{font-size:12px;text-align:center;}
+.gb-pct{font-size:14px;font-weight:700;}
+.gb-info{font-size:11px;color:var(--sub);text-align:center;}
 .seg{display:flex;gap:6px;margin-top:12px;}
 .seg button{flex:1;padding:8px;border-radius:12px;border:1px solid var(--glass-brd);background:var(--glass);color:var(--sub);cursor:pointer;font-size:13px;font-family:'Inter';}
 .seg button.on{color:#0b0e17;background:var(--accent1);border-color:transparent;font-weight:600;}
@@ -270,8 +279,6 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
       </div>
       <div class="section-title">Progression par exercice</div>
       <div id="repProgress"><p style="color:var(--sub);font-size:13px;">Pas encore assez de données.</p></div>
-      <div class="section-title" style="margin-top:22px;">Muscles travaillés</div>
-      <div id="repBody"></div>
     </div>
   </div>
 
@@ -365,10 +372,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
       <div class="section-title">Modèles de programme</div>
       <select id="presetSel" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
       <button class="btn btn-ghost" id="presetBtn" style="width:100%;margin-bottom:10px;">Charger ce modèle</button>
-      <div class="section-title">Objectif du mois</div>
-      <select id="goalEx" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;"></select>
-      <input id="goalTarget" type="number" min="1" placeholder="Nombre à atteindre ce mois-ci" style="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';margin-bottom:8px;">
-      <button class="btn btn-ghost" id="goalSave" style="width:100%;margin-bottom:10px;">Enregistrer l'objectif</button>
+      <div class="section-title">Objectifs (barres de suivi)</div>
+      <div id="goalSlotsBox"></div>
       <div class="section-title">Séances partagées</div>
       <div id="shareInbox"></div>
       <button class="btn btn-ghost" id="shareBtn" style="margin-bottom:10px;">Partager la séance sélectionnée</button>
@@ -902,10 +907,10 @@ NAVS.forEach(n=>{
   b.innerHTML=`<span class="ic">${n.ic}</span>${n.label}`;
   b.onclick=()=>showView(n.id); navbar.appendChild(b);
 });
-const NAV_OF={catalogue:"session", history:"suivi", report:"suivi", suivi:"suivi"};
+const NAV_OF={catalogue:"session", history:"suivi", report:"suivi", goals:"suivi", suivi:"suivi"};
 function showView(id, fromDrag){
-  if(id==="suivi") id=localStorage.getItem("toji_suivi_sub")==="history" ? "history" : "report";
-  if(id==="report" || id==="history") localStorage.setItem("toji_suivi_sub", id);
+  if(id==="suivi"){ const last=localStorage.getItem("toji_suivi_sub"); id=["history","goals"].includes(last)?last:"report"; }
+  if(["report","history","goals"].includes(id)) localStorage.setItem("toji_suivi_sub", id);
   const navId=NAV_OF[id] || id;
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
@@ -917,6 +922,7 @@ function showView(id, fromDrag){
     inner.scrollTo({left:Math.max(0,left), behavior:"smooth"});
   }
   if(id==="history") renderHistory();
+  if(id==="goals") renderGoalBars();
   if(id==="report") renderReport();
   if(id==="catalogue") renderCatalogue();
   if(id==="defis") loadDefis();
@@ -1303,10 +1309,12 @@ function openCalendar(){
 document.getElementById("streakBtn").onclick=openCalendar;
 
 // Sous-onglets : Suivi (Rapport, Historique) et Séance (Séance, Catalogue)
-document.querySelector("#view-report").insertAdjacentHTML("afterbegin",
-  '<div class="seg subtabs"><button data-go="report">Rapport</button><button data-go="history">Historique</button></div>');
-document.querySelector("#view-history").insertAdjacentHTML("afterbegin",
-  '<div class="seg subtabs"><button data-go="report">Rapport</button><button data-go="history">Historique</button></div>');
+document.getElementById("view-history").insertAdjacentHTML("afterend",
+  '<div class="view" id="view-goals"><div class="glass"><h2 style="margin-top:0;">Objectifs du mois</h2><div id="goalBars"></div><p style="font-size:12px;color:var(--sub);margin:12px 0 0;">Chaque barre suit un exercice ou une famille. Tu règles les objectifs et les couleurs dans Réglages.</p></div></div>');
+const SUBTABS='<div class="seg subtabs"><button data-go="report">Rapport</button><button data-go="history">Historique</button><button data-go="goals">Objectifs</button></div>';
+document.querySelector("#view-report").insertAdjacentHTML("afterbegin", SUBTABS);
+document.querySelector("#view-history").insertAdjacentHTML("afterbegin", SUBTABS);
+document.querySelector("#view-goals").insertAdjacentHTML("afterbegin", SUBTABS);
 document.querySelector("#view-session").insertAdjacentHTML("afterbegin",
   '<div class="seg subtabs"><button data-go="session">Séance</button><button data-go="catalogue">Catalogue</button></div>');
 document.querySelectorAll(".subtabs").forEach(bar=>{
@@ -1372,7 +1380,7 @@ function isTimedKey(key){
 function isTimedName(n){ const l=n.toLowerCase(); return l.includes("gainage")||l.includes("planche"); }
 function renderGoal(sessions){
   const arc=document.getElementById("goalArc"); if(!arc) return;
-  const g=settings.monthGoal;
+  const g=getSlots()[0];
   const now=new Date(); const mk=monthKey(now);
   const monthName=now.toLocaleDateString("fr-FR",{month:"long"});
   const set=(label,value,sub,pct)=>{
@@ -1398,24 +1406,66 @@ function renderGoal(sessions){
   const pct=Math.round(total/g.target*100);
   set("Objectif · "+monthName, total+" / "+g.target+unit, labelOf(g.ex), pct+"%");
 }
-function renderGoalSettings(){
-  const sel=document.getElementById("goalEx"); if(!sel) return;
-  sel.innerHTML=groupedChoices().map(g=>
-    `<optgroup label="${g.label}">${g.items.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("")}</optgroup>`
-  ).join("");
-  if(settings.monthGoal && settings.monthGoal.ex) sel.value=settings.monthGoal.ex;
-  const t=document.getElementById("goalTarget");
-  if(settings.monthGoal && settings.monthGoal.target) t.value=settings.monthGoal.target;
+const SLOT_COLORS=["#34D27B","#F5A524","#7C8CF9"];
+function getSlots(){
+  const list=settings.goalSlots || [];
+  return [0,1,2].map(i=>list[i] || (i===0 && settings.monthGoal ? {...settings.monthGoal} : null));
 }
-document.getElementById("goalSave").onclick=()=>{
-  const ex=document.getElementById("goalEx").value;
-  const target=parseInt(document.getElementById("goalTarget").value);
-  if(!ex || !target || target<1){ showToast("Entre un nombre valide."); return; }
-  settings.monthGoal={ex:ex, target:target, month:monthKey(new Date())};
-  saveSettings(settings);
-  renderHome();
-  showToast("Objectif enregistré.");
-};
+function slotProgress(slot, sessions){
+  const mk=monthKey(new Date());
+  let total=0;
+  sessions.filter(x=>!x.skip && monthKey(new Date(x.date))===mk).forEach(x=>x.entries.forEach(e=>{
+    if(matchesKey(slot.ex, e.name)) e.values.forEach(v=>{ if(v) total+=v; });
+  }));
+  return total;
+}
+function renderGoalBars(){
+  const el=document.getElementById("goalBars"); if(!el) return;
+  const sessions=loadSessions();
+  el.innerHTML='<div class="goal-bars">'+getSlots().map((s,i)=>{
+    if(!s || !s.ex || !s.target){
+      return `<div class="gb"><div class="gb-val">&nbsp;</div><div class="gb-track"></div><div class="gb-name">Barre ${i+1}</div><div class="gb-pct">—</div><div class="gb-info">Pas encore réglée</div></div>`;
+    }
+    const total=slotProgress(s, sessions);
+    const pct=Math.min(100, Math.round(total/s.target*100));
+    const unit=isTimedKey(s.ex)?" s":" reps";
+    const msg = total>=s.target ? "Objectif atteint" : `Il te reste ${s.target-total}${unit}`;
+    return `<div class="gb"><div class="gb-val">${total} / ${s.target}</div><div class="gb-track"><div class="gb-fill" style="height:${pct}%;background:${s.color||SLOT_COLORS[i]};"></div></div><div class="gb-name">${labelOf(s.ex)}</div><div class="gb-pct">${pct} %</div><div class="gb-info">${msg}</div></div>`;
+  }).join("")+'</div>';
+}
+function renderGoalSettings(){
+  const box=document.getElementById("goalSlotsBox"); if(!box) return;
+  const slots=getSlots();
+  const opts=groupedChoices().map(g=>`<optgroup label="${g.label}">${g.items.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${labelOf(n)}</option>`).join("")}</optgroup>`).join("");
+  const field="width:100%;background:var(--glass);border:1px solid var(--glass-brd);border-radius:12px;padding:12px;color:var(--text);font-family:'Inter';";
+  box.innerHTML=[0,1,2].map(i=>{
+    const s=slots[i]||{};
+    return `<div class="glass" style="padding:12px;margin-bottom:10px;">
+      <div class="streak-lbl" style="margin-bottom:6px;">Barre ${i+1}</div>
+      <select id="gsEx${i}" style="${field}margin-bottom:8px;"></select>
+      <div style="display:flex;gap:8px;">
+        <input id="gsT${i}" type="number" min="1" placeholder="Objectif du mois" value="${s.target||""}" style="${field}flex:1;">
+        <input id="gsC${i}" type="color" value="${s.color||SLOT_COLORS[i]}" style="width:56px;height:46px;border:none;background:none;">
+      </div></div>`;
+  }).join("")+`<button class="btn btn-primary" id="goalSaveAll" style="width:100%;margin-bottom:10px;">Enregistrer les objectifs</button>`;
+  [0,1,2].forEach(i=>{
+    const sel=document.getElementById("gsEx"+i);
+    sel.innerHTML=opts;
+    if(slots[i] && slots[i].ex) sel.value=slots[i].ex;
+  });
+  document.getElementById("goalSaveAll").onclick=()=>{
+    const out=[0,1,2].map(i=>{
+      const ex=document.getElementById("gsEx"+i).value;
+      const target=parseInt(document.getElementById("gsT"+i).value);
+      const color=document.getElementById("gsC"+i).value;
+      return (ex && target>0) ? {ex, target, color, month: monthKey(new Date())} : null;
+    });
+    settings.goalSlots=out;
+    saveSettings(settings);
+    renderHome(); renderGoalBars();
+    showToast("Objectifs enregistrés.");
+  };
+}
 
 // PARTAGE DE SÉANCES (par pseudo ou par lien)
 function copyTemplate(tpl, name){
@@ -2320,80 +2370,8 @@ function deleteSession(s){
 }
 
 // REPORT
-// RÉPARTITION DES MUSCLES : chaque exercice travaille certaines zones, dans une proportion donnée
-const SHARES_BY_ZONE={
-  "Pectoraux":{pectoraux:70, triceps:20, epaules:10},
-  "Dos":{dos:60, biceps:20, trapezes:20},
-  "Épaules":{epaules:80, trapezes:20},
-  "Bras":{biceps:50, triceps:50},
-  "Jambes":{quadriceps:40, fessiers:30, "ischio-jambiers":30},
-  "Abdos":{abdos:100}
-};
-const SHARES_BY_NAME={
-  "Pompes classiques":{pectoraux:60, triceps:25, epaules:15},
-  "Pompes pieds surélevés":{pectoraux:60, triceps:25, epaules:15},
-  "Pompes lentes":{pectoraux:60, triceps:25, epaules:15},
-  "Pompes diamant":{pectoraux:40, triceps:45, epaules:15},
-  "Pike push-ups":{epaules:65, triceps:25, pectoraux:10},
-  "Élévations latérales":{epaules:80, trapezes:20},
-  "Élévations frontales":{epaules:80, trapezes:20},
-  "Squats":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
-  "Squats bulgares":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
-  "Squats pause en bas":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
-  "Fentes avant":{quadriceps:50, fessiers:35, "ischio-jambiers":15},
-  "Gainage":{abdos:85, dos:15},
-  "Gainage latéral":{abdos:85, dos:15},
-  "Superman":{dos:85, fessiers:15},
-  "Soulevé de terre roumain":{"ischio-jambiers":40, fessiers:40, dos:20},
-  "Hip thrust":{fessiers:40, "ischio-jambiers":40, dos:20},
-  "Mollets debout":{mollets:100},
-  "Mollets à la machine":{mollets:100}
-};
-function sharesFor(name, zone){
-  if(SHARES_BY_NAME[name]) return SHARES_BY_NAME[name];
-  const n=name.toLowerCase();
-  if(zone==="Bras" && n.includes("triceps")) return {triceps:100};
-  if(zone==="Bras" && n.includes("dips")) return {triceps:100};
-  if(zone==="Dos" && n.includes("superman")) return {dos:85, fessiers:15};
-  return SHARES_BY_ZONE[zone] || {};
-}
-// Les zones du schéma : mollets-dos compte avec mollets
-function zoneKey(z){ return z==="mollets-dos" ? "mollets" : z; }
-let bodySvgText=null;
-async function renderExerciseCharts(){
-  const el=document.getElementById("repBody"); if(!el) return;
-  const per=localStorage.getItem("toji_rep_per")==="month"?"month":"week";
-  const {start}=repRange(per);
-  const sessions=loadSessions().filter(s=>!s.skip && new Date(s.date)>=start);
-  const loads={};
-  sessions.forEach(s=>s.entries.forEach(e=>{
-    const total=(e.values||[]).reduce((a,v)=>a+(v||0),0);
-    if(!total) return;
-    const cat=CATALOG.find(c=>c.n===e.name);
-    const sh=sharesFor(e.name, cat && cat.zone);
-    Object.entries(sh).forEach(([m,p])=>{ loads[m]=(loads[m]||0)+total*p/100; });
-  }));
-  const sum=Object.values(loads).reduce((a,v)=>a+v,0);
-  if(!sum){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Pas encore de séances sur cette période.</p>'; return; }
-  const max=Math.max(...Object.values(loads));
-  if(!bodySvgText){
-    try{ bodySvgText=await (await fetch("body-muscles-v4.svg")).text(); }
-    catch(err){ el.innerHTML='<p style="color:var(--sub);font-size:13px;">Schéma indisponible.</p>'; return; }
-  }
-  const legend=Object.entries(loads).sort((a,b)=>b[1]-a[1]).map(([m,v])=>{
-    const label=m.charAt(0).toUpperCase()+m.slice(1).replace("-"," ");
-    return `<div class="progress-row"><span>${label}</span><span>${Math.round(v/sum*100)} %</span></div>`;
-  }).join("");
-  el.innerHTML=`<div style="max-width:260px;margin:0 auto;">${bodySvgText}</div><div style="margin-top:12px;">${legend}</div>`;
-  const svgEl=el.querySelector("svg");
-  if(svgEl){ svgEl.removeAttribute("width"); svgEl.removeAttribute("height"); svgEl.style.width="100%"; svgEl.style.height="auto"; svgEl.style.display="block"; }
-  el.querySelectorAll("[data-muscle]").forEach(z=>{
-    const k=zoneKey(z.dataset.muscle);
-    const v=loads[k]||0;
-    z.style.fill="var(--accent1)";
-    z.style.fillOpacity=v>0 ? (0.15+0.55*(v/max)).toFixed(2) : "0";
-  });
-}
+// Les graphiques par exercice reviendront à l'étape suivante du rapport
+function renderExerciseCharts(){}
 function repRange(per){
   const today=new Date(); today.setHours(0,0,0,0);
   if(per==="month"){
