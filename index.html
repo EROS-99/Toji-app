@@ -174,6 +174,11 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
 *{-webkit-tap-highlight-color:transparent;}
 #sessList{padding-bottom:120px;}
 .subtabs{margin:12px 0 18px;}
+.sum-big{font-size:26px;font-weight:700;line-height:1.3;}
+.sum-cards{display:flex;justify-content:space-around;margin:16px 0 4px;}
+.sum-cards b{display:block;font-size:20px;}
+.sum-cards span{font-size:12px;color:var(--sub);}
+.sum-block{text-align:left;margin-top:14px;padding-top:12px;border-top:1px solid var(--glass-brd);}
 .goal-bars{display:flex;gap:18px;justify-content:center;align-items:flex-start;max-width:300px;margin:6px auto 0;padding:4px 0;}
 .gb{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;}
 .gb-val,.gb-name,.gb-pct,.gb-info{width:100%;text-align:center;}
@@ -1479,10 +1484,13 @@ function copyTemplate(tpl, name){
   renderTemplateSelect(); renderProgExList(); renderDayMapList();
   return id;
 }
-function openShareSheet(){
-  const id=selectedTemplateId;
-  if(!id || !PROG.templates[id]){ showToast("Choisis d'abord une séance."); return; }
-  const tpl={name:PROG.templates[id].name, ex:PROG.templates[id].ex||[]};
+function openShareSheet(override){
+  let tpl=override;
+  if(!tpl){
+    const id=selectedTemplateId;
+    if(!id || !PROG.templates[id]){ showToast("Choisis d'abord une séance."); return; }
+    tpl={name:PROG.templates[id].name, ex:PROG.templates[id].ex||[]};
+  }
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;">
@@ -1570,7 +1578,7 @@ async function handleShareLink(){
   copyTemplate(s.template, s.name);
   showToast("Séance ajoutée à tes séances.");
 }
-document.getElementById("shareBtn").onclick=openShareSheet;
+document.getElementById("shareBtn").onclick=()=>openShareSheet();
 function renderPresetSelect(){
   const sel=document.getElementById("presetSel"); if(!sel) return;
   sel.innerHTML=PRESET_MODELS.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
@@ -2104,7 +2112,7 @@ document.getElementById("skipBtn").onclick=(e)=>{
     setTimeout(()=>{ if(e.target.dataset.armed==="1"){ e.target.dataset.armed="0"; e.target.textContent="En voyage — sauter sans casser ma série"; } },3000);
   }
 };
-let sessionDay=null, sessionDow=null, sessionDateOverride=null;
+let sessionDay=null, sessionDow=null, sessionDateOverride=null, sessionStartedAt=null;
 const ACTIVE_KEY="toji_active_session";
 // Chaque chiffre saisi est gardé sur le téléphone : si la page se recharge, rien n'est perdu
 function saveActiveSession(){
@@ -2114,12 +2122,13 @@ function saveActiveSession(){
     if(inp.value) values[inp.dataset.ex+"-"+inp.dataset.set]=inp.value;
   });
   const done=[...document.querySelectorAll("#sessList .set-ok-done")].map(b=>b.dataset.ex+"-"+b.dataset.set);
-  try{ localStorage.setItem(ACTIVE_KEY, JSON.stringify({dow:sessionDow, date:sessionDateOverride, day:sessionDay, values:values, done:done})); }catch(e){}
+  try{ localStorage.setItem(ACTIVE_KEY, JSON.stringify({dow:sessionDow, date:sessionDateOverride, day:sessionDay, values:values, done:done, startedAt:sessionStartedAt})); }catch(e){}
 }
 function restoreActiveSession(day){
   let s=null;
   try{ s=JSON.parse(localStorage.getItem(ACTIVE_KEY)||"null"); }catch(e){ return; }
   if(!s || !s.day || s.day.name!==day.name || s.dow!==sessionDow || (s.date||null)!==(sessionDateOverride||null)) return;
+  if(s.startedAt) sessionStartedAt=s.startedAt;
   Object.entries(s.values||{}).forEach(([k,v])=>{
     const [e,st]=k.split("-");
     const inp=document.querySelector(`input[data-ex="${e}"][data-set="${st}"]`);
@@ -2151,11 +2160,92 @@ function finishSession(){
   document.getElementById("confirmFinishModal").classList.remove("active");
   sessionDay=null; currentSessionEntries=[];
   if(dup){ clearActiveSession(); sessionDow=null; sessionDateOverride=null; showView("home"); renderHome(); showToast("Cette séance est déjà enregistrée."); return; }
+  const minutes = sessionStartedAt ? Math.max(1, Math.round((Date.now()-sessionStartedAt)/60000)) : null;
+  sessionStartedAt=null;
+  const summary=buildSummary(day, entries, sessions, minutes);
   sessions.push({date:isoDate, day:dow, dayName:day.name, entries});
   saveSessions(sessions);
   clearActiveSession();
   sessionDow=null; sessionDateOverride=null;
-  showView("home"); renderHome();
+  showSummary(summary, day);
+}
+
+// RÉSUMÉ DE FIN DE SÉANCE
+function fmtSecs(n){ const m=Math.floor(n/60), s=n%60; return m ? `${m} min ${s} s` : `${s} s`; }
+function buildSummary(day, entries, prev, minutes){
+  const done=prev.filter(s=>!s.skip);
+  const sameDay=done.filter(s=>s.dayName===day.name);
+  const last=sameDay[sameDay.length-1];
+  const totalOf=en=>(en.values||[]).reduce((a,v)=>a+(v||0),0);
+  const timedOf=name=>{ const c=day.ex.find(x=>x.n===name); return !!(c && c.timed); };
+  let ratios=[], reps=0, secs=0, series=0;
+  const records=[];
+  entries.forEach(en=>{
+    const vals=(en.values||[]).filter(v=>v!=null);
+    series+=vals.length;
+    const total=totalOf(en);
+    const timed=timedOf(en.name);
+    if(timed) secs+=total; else reps+=total;
+    if(!vals.length){ ratios.push(0); return; }
+    let bestSame=0;
+    sameDay.forEach(s=>{ const e=s.entries.find(x=>x.name===en.name); if(e) bestSame=Math.max(bestSame,totalOf(e)); });
+    ratios.push(bestSame>0 ? Math.min(1,total/bestSame) : 1);
+    let bestAll=0;
+    done.forEach(s=>{ const e=s.entries.find(x=>x.name===en.name); if(e) bestAll=Math.max(bestAll,totalOf(e)); });
+    if(bestAll>0 && total>bestAll) records.push(`${en.name} · ${total}${timed?" s":" reps"}`);
+  });
+  const ring = ratios.length ? Math.round(ratios.reduce((a,b)=>a+b,0)/ratios.length*100) : 0;
+  let compare;
+  if(!last) compare="Première séance de ce jour : pas encore de comparaison";
+  else{
+    const lr=last.entries.filter(e=>!timedOf(e.name)).reduce((a,e)=>a+totalOf(e),0);
+    const ls=last.entries.filter(e=>timedOf(e.name)).reduce((a,e)=>a+totalOf(e),0);
+    const dr=reps-lr, ds=secs-ls;
+    compare=`${dr>=0?"+":""}${dr} reps · ${ds>=0?"+":""}${ds} s vs dernière séance`;
+  }
+  return {title:day.name, ring, reps, secs, series, minutes, compare, records, entries};
+}
+function showSummary(d, day){
+  const C=2*Math.PI*52;
+  const dash=(d.ring/100*C).toFixed(1)+" "+C.toFixed(1);
+  // Objectifs : ce que cette séance apporte
+  const objLines=[];
+  getSlots().forEach((s,i)=>{
+    if(!s || !s.ex || !s.target) return;
+    const contrib=d.entries.filter(en=>matchesKey(s.ex,en.name)).reduce((a,en)=>a+(en.values||[]).reduce((x,v)=>x+(v||0),0),0);
+    if(contrib<=0) return;
+    const pct=Math.min(100, Math.round(slotProgress(s, loadSessions())/s.target*100));
+    const unit=isTimedKey(s.ex)?" s":" reps";
+    objLines.push(`Barre ${i+1} · ${labelOf(s.ex)} : +${contrib}${unit} · ${pct} % atteint`);
+  });
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:320;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto;overscroll-behavior:contain;";
+  const fort=[d.reps?`<div class="sum-big">${d.reps} reps</div>`:"", d.secs?`<div class="sum-big">${fmtSecs(d.secs)}</div>`:""].join("");
+  const rec=d.records.length ? `<div class="sum-block"><div class="streak-lbl">Records</div>${d.records.map(r=>`<div style="color:#34D27B;font-size:14px;margin:4px 0;">Nouveau record : ${r}</div>`).join("")}</div>` : "";
+  const obj=objLines.length ? `<div class="sum-block"><div class="streak-lbl">Objectifs</div>${objLines.map(l=>`<div style="font-size:13px;margin:4px 0;">${l}</div>`).join("")}</div>` : "";
+  ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;text-align:center;">
+    <div class="streak-lbl">Séance terminée</div>
+    <h3 style="margin:4px 0 16px;">${d.title}</h3>
+    <div style="position:relative;width:150px;height:150px;margin:0 auto;">
+      <svg viewBox="0 0 120 120" width="150" height="150" style="transform:rotate(-90deg);display:block;">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(127,127,127,0.18)" stroke-width="9"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent1)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${dash}"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;">${d.ring}%</div>
+    </div>
+    <div style="margin:16px 0 4px;">${fort}</div>
+    <div style="font-size:13px;color:var(--sub);">${d.compare}</div>
+    <div class="sum-cards">
+      <div><b>${d.minutes!=null ? d.minutes+" min" : "—"}</b><span>durée</span></div>
+      <div><b>${d.series}</b><span>séries faites</span></div>
+    </div>
+    ${rec}${obj}
+    <button class="btn btn-ghost" id="sumShare" style="width:100%;margin-top:16px;">Partager cette séance</button>
+    <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:8px;">Terminer</button>
+  </div>`;
+  openOverlay(ov);
+  ov.querySelector("#sumShare").onclick=()=>openShareSheet({name:day.name, ex:day.ex});
+  ov.querySelector("#sumDone").onclick=()=>{ closeOverlay(ov); showView("home"); renderHome(); };
 }
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
@@ -2235,7 +2325,7 @@ function buildSession(overrideDow, overrideDate, customDay){
   const dow = overrideDow!=null ? overrideDow : today;
   sessionDow = overrideDow!=null ? overrideDow : null;
   sessionDateOverride = overrideDate || null;
-  const day=customDay || getDayProgram(dow); sessionDay=day; currentSessionEntries=[];
+  const day=customDay || getDayProgram(dow); sessionDay=day; currentSessionEntries=[]; sessionStartedAt=Date.now();
   document.getElementById("sessDayPill").textContent = overrideDate ? "Rattrapage — "+DAY_NAMES[dow] : (customDay ? "Composée" : DAY_NAMES[dow]);
   document.getElementById("sessTitle").textContent=day.name;
   const list=document.getElementById("sessList"); list.innerHTML="";
@@ -2254,8 +2344,10 @@ function buildSession(overrideDow, overrideDate, customDay){
   });
   list.querySelectorAll(".timer-btn").forEach(b=>{
     b.onclick=()=>{
-      const i=parseInt(b.dataset.target.split("-")[0]);
-      openTimer(parseInt(b.dataset.dur), b.dataset.target, day.ex[i].n.toUpperCase());
+      const [ei,es]=b.dataset.target.split("-");
+      const typed=parseInt(document.querySelector(`input[data-ex="${ei}"][data-set="${es}"]`)?.value);
+      const dur = typed>0 ? typed : parseInt(b.dataset.dur);
+      openTimer(dur, b.dataset.target, day.ex[parseInt(ei)].n.toUpperCase());
     };
   });
   list.querySelectorAll(".guide-btn").forEach(b=>{
@@ -2292,21 +2384,22 @@ function startCountdown(){
     if(timerSeconds<=0){
       clearInterval(timerInterval); beep();
       document.getElementById("timerModal").classList.remove("active");
-      afterTimedSet(timerTarget);
+      afterTimedSet(timerTarget, timerInitial);
     }
   },1000);
 }
 document.getElementById("timerClose").onclick=()=>{
   clearInterval(timerInterval);
   document.getElementById("timerModal").classList.remove("active");
-  afterTimedSet(timerTarget);
+  const held = Math.max(0, timerInitial - Math.max(timerSeconds,0));
+  afterTimedSet(timerTarget, held);
 };
-function afterTimedSet(target){
+function afterTimedSet(target, value){
   if(!target) return;
   const [i,s]=target.split("-").map(Number);
   timerTarget=null;
   const inp=document.querySelector(`input[data-ex="${i}"][data-set="${s}"]`);
-  if(inp && !inp.value) inp.value = timerInitial;
+  if(inp) inp.value = value;
   if(isLastSet(i,s)){ showFinishConfirm(); }
   else { openTimer(settings.restSeconds||60, null, "REPOS"); }
 }
