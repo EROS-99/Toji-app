@@ -1550,13 +1550,20 @@ async function loadShareInbox(){
   if(error || !data || !data.length){ el.innerHTML='<p style="color:var(--sub);font-size:13px;margin:0 0 10px;">Aucune séance reçue.</p>'; return; }
   el.innerHTML=data.map(s=>`<div class="glass" style="margin-bottom:10px;padding:12px;">
     <b>${s.name}</b>
-    <div style="font-size:12px;color:var(--sub);margin:2px 0 8px;">De ${s.from_name||"un ami"} · ${((s.template&&s.template.ex)||[]).length} exercice(s)</div>
+    <div style="font-size:12px;color:var(--sub);margin:2px 0 8px;">De ${s.from_name||"un ami"} · ${(s.template&&s.template.kind==="summary") ? "résumé de séance" : ((s.template&&s.template.ex)||[]).length+" exercice(s)"}</div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary" data-sacc="${s.id}" style="flex:1;">Accepter</button>
+      ${(s.template&&s.template.kind==="summary") ? `<button class="btn btn-primary" data-sview="${s.id}" style="flex:1;">Voir le résumé</button>` : `<button class="btn btn-primary" data-sacc="${s.id}" style="flex:1;">Accepter</button>`}
       <button class="btn btn-ghost" data-sref="${s.id}" style="flex:1;">Refuser</button>
     </div></div>`).join("");
   el.querySelectorAll("[data-sacc]").forEach(b=>b.onclick=()=>respondShare(b.dataset.sacc,"accepted",data));
   el.querySelectorAll("[data-sref]").forEach(b=>b.onclick=()=>respondShare(b.dataset.sref,"refused",data));
+  el.querySelectorAll("[data-sview]").forEach(b=>b.onclick=()=>viewSummaryShare(b.dataset.sview,data));
+}
+async function viewSummaryShare(id,list){
+  const s=list.find(x=>x.id===id); if(!s) return;
+  showSummary(s.template.summary, null, {readOnly:true, from:s.from_name});
+  await sb.from("shared_sessions").update({status:"accepted"}).eq("id",id);
+  loadShareInbox();
 }
 async function respondShare(id,status,list){
   const s=list.find(x=>x.id===id); if(!s) return;
@@ -1574,6 +1581,7 @@ async function handleShareLink(){
   const {data,error}=await sb.rpc("get_shared_by_token",{p_token:token});
   if(error || !data || !data.length){ showToast("Ce lien n'existe plus."); return; }
   const s=data[0];
+  if(s.template && s.template.kind==="summary"){ showSummary(s.template.summary, null, {readOnly:true, from:s.from_name}); return; }
   if(!confirm((s.from_name||"Un ami")+" t'envoie la séance « "+s.name+" ». L'ajouter à tes séances ?")) return;
   copyTemplate(s.template, s.name);
   showToast("Séance ajoutée à tes séances.");
@@ -2163,7 +2171,7 @@ function finishSession(){
   const minutes = sessionStartedAt ? Math.max(1, Math.round((Date.now()-sessionStartedAt)/60000)) : null;
   sessionStartedAt=null;
   const summary=buildSummary(day, entries, sessions, minutes);
-  sessions.push({date:isoDate, day:dow, dayName:day.name, entries});
+  sessions.push({date:isoDate, day:dow, dayName:day.name, entries, summary});
   saveSessions(sessions);
   clearActiveSession();
   sessionDow=null; sessionDateOverride=null;
@@ -2205,7 +2213,8 @@ function buildSummary(day, entries, prev, minutes){
   }
   return {title:day.name, ring, reps, secs, series, minutes, compare, records, entries};
 }
-function showSummary(d, day){
+function showSummary(d, day, opts){
+  const ro=!!(opts && opts.readOnly);
   const C=2*Math.PI*52;
   const dash=(d.ring/100*C).toFixed(1)+" "+C.toFixed(1);
   // Objectifs : ce que cette séance apporte
@@ -2222,9 +2231,9 @@ function showSummary(d, day){
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:320;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto;overscroll-behavior:contain;";
   const fort=[d.reps?`<div class="sum-big">${d.reps} reps</div>`:"", d.secs?`<div class="sum-big">${fmtSecs(d.secs)}</div>`:""].join("");
   const rec=d.records.length ? `<div class="sum-block"><div class="streak-lbl">Records</div>${d.records.map(r=>`<div style="color:#34D27B;font-size:14px;margin:4px 0;">Nouveau record : ${r}</div>`).join("")}</div>` : "";
-  const obj=objLines.length ? `<div class="sum-block"><div class="streak-lbl">Objectifs</div>${objLines.map(l=>`<div style="font-size:13px;margin:4px 0;">${l}</div>`).join("")}</div>` : "";
+  const obj=(!ro && objLines.length) ? `<div class="sum-block"><div class="streak-lbl">Objectifs</div>${objLines.map(l=>`<div style="font-size:13px;margin:4px 0;">${l}</div>`).join("")}</div>` : "";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;text-align:center;">
-    <div class="streak-lbl">Séance terminée</div>
+    <div class="streak-lbl">${ro ? ((opts && opts.label) || ("Résumé partagé"+(opts && opts.from ? " par "+opts.from : ""))) : "Séance terminée"}</div>
     <h3 style="margin:4px 0 16px;">${d.title}</h3>
     <div style="position:relative;width:150px;height:150px;margin:0 auto;">
       <svg viewBox="0 0 120 120" width="150" height="150" style="transform:rotate(-90deg);display:block;">
@@ -2240,12 +2249,12 @@ function showSummary(d, day){
       <div><b>${d.series}</b><span>séries faites</span></div>
     </div>
     ${rec}${obj}
-    <button class="btn btn-ghost" id="sumShare" style="width:100%;margin-top:16px;">Partager cette séance</button>
-    <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:8px;">Terminer</button>
+    ${ro ? "" : '<button class="btn btn-ghost" id="sumShare" style="width:100%;margin-top:16px;">Partager cette séance</button>'}
+    <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:${ro?16:8}px;">${ro ? "Fermer" : "Terminer"}</button>
   </div>`;
   openOverlay(ov);
-  ov.querySelector("#sumShare").onclick=()=>openShareSheet({name:day.name, ex:day.ex});
-  ov.querySelector("#sumDone").onclick=()=>{ closeOverlay(ov); showView("home"); renderHome(); };
+  if(!ro) ov.querySelector("#sumShare").onclick=()=>openShareSheet({kind:"summary", name:d.title, summary:d});
+  ov.querySelector("#sumDone").onclick=()=>{ closeOverlay(ov); if(!ro){ showView("home"); renderHome(); } };
 }
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
@@ -2446,11 +2455,20 @@ function renderHistory(){
     else item.appendChild(btn);
   });
   el.querySelectorAll(".hist-clickable").forEach(item=>{
-    item.onclick=()=>{
-      const det=document.getElementById("histDetail"+item.dataset.i);
-      det.style.display = det.style.display==="none" ? "block" : "none";
-    };
+    item.onclick=()=>openHistoryStats(sessions[parseInt(item.dataset.i)]);
   });
+}
+
+// Statistiques d'une séance passée : celles enregistrées à la fin, ou recalculées pour les anciennes
+function openHistoryStats(s){
+  const all=loadSessions().filter(x=>!x.skip);
+  const day=(() => {
+    const tpl=Object.values(PROG.templates).find(t=>t.name===s.dayName);
+    return {name:s.dayName, ex: tpl && tpl.ex ? tpl.ex : s.entries.map(e=>({n:e.name, timed:isTimedName(e.name)}))};
+  })();
+  const d = s.summary || buildSummary(day, s.entries, all.filter(x=>new Date(x.date)<new Date(s.date)), null);
+  const label = new Date(s.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  showSummary(d, null, {readOnly:true, label:label.charAt(0).toUpperCase()+label.slice(1)});
 }
 
 // Supprime une séance de l'historique (et du compte si elle y est)
