@@ -2250,11 +2250,15 @@ function showSummary(d, day, opts){
     </div>
     ${rec}${obj}
     ${ro ? "" : '<button class="btn btn-ghost" id="sumShare" style="width:100%;margin-top:16px;">Partager cette séance</button>'}
-    <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:${ro?16:8}px;">${ro ? "Fermer" : "Terminer"}</button>
+    ${(ro && opts && opts.onDelete) ? '<button class="btn btn-danger" id="sumDel" style="width:100%;margin-top:16px;">Supprimer cette séance</button>' : ''}
+    <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:${ro?8:8}px;">${ro ? "Fermer" : "Terminer"}</button>
   </div>`;
   openOverlay(ov);
   if(!ro) ov.querySelector("#sumShare").onclick=()=>openShareSheet({kind:"summary", name:d.title, summary:d});
   ov.querySelector("#sumDone").onclick=()=>{ closeOverlay(ov); if(!ro){ showView("home"); renderHome(); } };
+  if(ro && opts && opts.onDelete){
+    ov.querySelector("#sumDel").onclick=()=>{ if(opts.onDelete()) closeOverlay(ov); };
+  }
 }
 document.getElementById("finishSessionBtn").onclick=()=>{ showFinishConfirm(); };
 document.getElementById("sessList").addEventListener("input", saveActiveSession);
@@ -2468,12 +2472,12 @@ function openHistoryStats(s){
   })();
   const d = s.summary || buildSummary(day, s.entries, all.filter(x=>new Date(x.date)<new Date(s.date)), null);
   const label = new Date(s.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  showSummary(d, null, {readOnly:true, label:label.charAt(0).toUpperCase()+label.slice(1)});
+  showSummary(d, null, {readOnly:true, label:label.charAt(0).toUpperCase()+label.slice(1), onDelete:()=>deleteSession(s)});
 }
 
 // Supprime une séance de l'historique (et du compte si elle y est)
 function deleteSession(s){
-  if(!confirm("Supprimer cette séance de l'historique ?")) return;
+  if(!confirm("Supprimer cette séance de l'historique ?")) return false;
   const all=loadSessions();
   const idx=all.findIndex(x=> (s.id && x.id===s.id) || (!s.id && x.date===s.date && x.dayName===s.dayName));
   if(idx<0){ showToast("Séance introuvable."); return; }
@@ -2481,6 +2485,7 @@ function deleteSession(s){
   saveSessions(all);
   renderHistory(); renderHome();
   showToast("Séance supprimée.");
+  return true;
 }
 
 // REPORT
