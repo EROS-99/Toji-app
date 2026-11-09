@@ -1947,12 +1947,24 @@ document.getElementById("dfSend").onclick=async()=>{
 // RESYNCHRONISATION MANUELLE
 document.getElementById("resyncBtn").onclick=async()=>{
   if(!sb||!currentUser){ alert("Connecte-toi d'abord."); return; }
+  // 1. Session renouvelée (évite l'erreur « JWT expired »)
+  const ref=await sb.auth.refreshSession();
+  if(ref.error){ alert("Ta session a expiré : déconnecte-toi puis reconnecte-toi, puis resynchronise."); return; }
+  // 2. Les séances de ce téléphone sont envoyées d'abord : rien n'est perdu
+  const local=loadSessions(); local.forEach(x=>{ if(!x.id) x.id=crypto.randomUUID(); });
+  if(local.length){
+    const up=await sb.from("sessions").upsert(local.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip})));
+    if(up.error){ alert("Envoi impossible : "+up.error.message); return; }
+  }
+  // 3. Puis on récupère celles du compte, et on garde l'ensemble
   const {data:rows, error}=await sb.from("sessions").select("*").order("date");
   if(error){ alert("Erreur de lecture : "+error.message); return; }
-  const mapped=(rows||[]).map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries||[], skip:!!r.skip}));
-  localStorage.setItem(LS_KEY, JSON.stringify(mapped));
+  const cloud=(rows||[]).map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries||[], skip:!!r.skip}));
+  const ids=new Set(cloud.map(x=>x.id));
+  const merged=[...cloud, ...local.filter(x=>!ids.has(x.id))].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  localStorage.setItem(LS_KEY, JSON.stringify(merged));
   renderHome(); renderHistory(); renderReport();
-  alert("Séances téléchargées : "+mapped.length+"\nEnregistrées sur ce téléphone : "+loadSessions().length);
+  alert("Séances synchronisées : "+merged.length);
 };
 // GLISSER ENTRE LES ONGLETS
 let tStartX=0, tStartY=0, tStartEl=null;
