@@ -949,8 +949,12 @@ function hideAuth(){ authEl().classList.remove("active"); }
 
 async function pushSessions(s){
   if(!currentUser || !sb || !s.length) return;
-  const rows=s.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip}));
-  const {error}=await sb.from("sessions").upsert(rows);
+  const rows=s.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip, summary:x.summary||null}));
+  let {error}=await sb.from("sessions").upsert(rows);
+  if(error && /summary/i.test(error.message)){
+    // La colonne « summary » n'est pas encore créée : on envoie sans elle
+    ({error}=await sb.from("sessions").upsert(rows.map(({summary,...r})=>r)));
+  }
   if(error) console.warn("sync sessions:", error);
 }
 async function pushSettings(withProg){
@@ -970,7 +974,7 @@ async function pullFromCloud(){
   // 2. Puis le téléphone reprend la version du compte
   const {data:rows, error}=await sb.from("sessions").select("*").order("date");
   if(!error && rows){
-    const mapped=rows.map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries, skip:r.skip}));
+    const mapped=rows.map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries, skip:r.skip, summary:r.summary||undefined}));
     localStorage.setItem(LS_KEY, JSON.stringify(mapped));
   }
   // 3. Réglages et exercices perso
@@ -1953,13 +1957,13 @@ document.getElementById("resyncBtn").onclick=async()=>{
   // 2. Les séances de ce téléphone sont envoyées d'abord : rien n'est perdu
   const local=loadSessions(); local.forEach(x=>{ if(!x.id) x.id=crypto.randomUUID(); });
   if(local.length){
-    const up=await sb.from("sessions").upsert(local.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip})));
+    const up=await sb.from("sessions").upsert(local.map(x=>({id:x.id, date:x.date, day:x.day, day_name:x.dayName||null, entries:x.entries||[], skip:!!x.skip, summary:x.summary||null})));
     if(up.error){ alert("Envoi impossible : "+up.error.message); return; }
   }
   // 3. Puis on récupère celles du compte, et on garde l'ensemble
   const {data:rows, error}=await sb.from("sessions").select("*").order("date");
   if(error){ alert("Erreur de lecture : "+error.message); return; }
-  const cloud=(rows||[]).map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries||[], skip:!!r.skip}));
+  const cloud=(rows||[]).map(r=>({id:r.id, date:r.date, day:r.day, dayName:r.day_name, entries:r.entries||[], skip:!!r.skip, summary:r.summary||undefined}));
   const ids=new Set(cloud.map(x=>x.id));
   const merged=[...cloud, ...local.filter(x=>!ids.has(x.id))].sort((a,b)=>new Date(a.date)-new Date(b.date));
   localStorage.setItem(LS_KEY, JSON.stringify(merged));
