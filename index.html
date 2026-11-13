@@ -2246,6 +2246,9 @@ function showSummary(d, day, opts){
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:320;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto;overscroll-behavior:contain;";
   const fort=[d.reps?`<div class="sum-big">${d.reps} reps</div>`:"", d.secs?`<div class="sum-big">${fmtSecs(d.secs)}</div>`:""].join("");
+  const detEntries=(opts && opts.entries) || (ro ? d.entries : null);
+  const detRows=detEntries ? detEntries.map(en=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin:7px 0;"><span style="text-align:left;">${en.name}</span><span style="color:var(--sub);white-space:nowrap;">${(en.values||[]).map(v=>v==null?"—":v).join(" · ")}</span></div>`).join("") : "";
+  const detBlock=(ro && detRows) ? `<button class="btn btn-ghost" id="sumDetBtn" style="width:100%;margin-top:16px;">Afficher la séance</button>` : "";
   const rec=d.records.length ? `<div class="sum-block"><div class="streak-lbl">Records</div>${d.records.map(r=>`<div style="color:#34D27B;font-size:14px;margin:4px 0;">Nouveau record : ${r}</div>`).join("")}</div>` : "";
   const obj=(!ro && objLines.length) ? `<div class="sum-block"><div class="streak-lbl">Objectifs</div>${objLines.map(l=>`<div style="font-size:13px;margin:4px 0;">${l}</div>`).join("")}</div>` : "";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;text-align:center;">
@@ -2266,12 +2269,15 @@ function showSummary(d, day, opts){
     </div>
     ${rec}${obj}
     ${ro ? "" : '<button class="btn btn-ghost" id="sumShare" style="width:100%;margin-top:16px;">Partager cette séance</button>'}
+    ${detBlock}
     ${(ro && opts && opts.onDelete) ? '<button class="btn btn-danger" id="sumDel" style="width:100%;margin-top:16px;">Supprimer cette séance</button>' : ''}
     <button class="btn btn-primary" id="sumDone" style="width:100%;margin-top:${ro?8:8}px;">${ro ? "Fermer" : "Terminer"}</button>
   </div>`;
   openOverlay(ov);
   if(!ro) ov.querySelector("#sumShare").onclick=()=>openShareSheet({kind:"summary", name:d.title, summary:d});
   ov.querySelector("#sumDone").onclick=()=>{ closeOverlay(ov); if(!ro){ showView("home"); renderHome(); } };
+  const detBtn=ov.querySelector("#sumDetBtn");
+  if(detBtn) detBtn.onclick=()=>openSessionDetail(detEntries, opts && opts.label ? opts.label : d.title);
   if(ro && opts && opts.onDelete){
     ov.querySelector("#sumDel").onclick=()=>{ if(opts.onDelete()) closeOverlay(ov); };
   }
@@ -2488,7 +2494,23 @@ function openHistoryStats(s){
   })();
   const d = s.summary || buildSummary(day, s.entries, all.filter(x=>new Date(x.date)<new Date(s.date)), null);
   const label = new Date(s.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  showSummary(d, null, {readOnly:true, label:label.charAt(0).toUpperCase()+label.slice(1), onDelete:()=>deleteSession(s)});
+  showSummary(d, null, {readOnly:true, label:label.charAt(0).toUpperCase()+label.slice(1), entries:s.entries, onDelete:()=>deleteSession(s)});
+}
+
+// Affiche une séance passée : chaque exercice avec ses séries
+function openSessionDetail(entries, label){
+  const rows=entries.map(en=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px;margin:9px 0;"><span style="text-align:left;">${en.name}</span><span style="color:var(--sub);white-space:nowrap;">${(en.values||[]).map(v=>v==null?"—":v).join(" · ")}</span></div>`).join("");
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:330;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto;overscroll-behavior:contain;";
+  ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;">
+    <div class="streak-lbl">Séance</div>
+    <h3 style="margin:4px 0 12px;">${label}</h3>
+    <div class="sum-block" style="margin-top:0;border-top:none;padding-top:0;">${rows || "<div style='color:var(--sub);'>Aucune série enregistrée.</div>"}</div>
+    <div style="font-size:11px;color:var(--sub);margin-top:10px;">Les chiffres sont les répétitions (ou secondes) de chaque série, dans l'ordre.</div>
+    <button class="btn btn-primary" data-close style="width:100%;margin-top:16px;">Fermer</button>
+  </div>`;
+  openOverlay(ov);
+  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov); });
 }
 
 // Supprime une séance de l'historique (et du compte si elle y est)
