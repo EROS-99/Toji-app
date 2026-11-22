@@ -1330,14 +1330,15 @@ document.querySelectorAll(".subtabs").forEach(bar=>{
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>showView(b.dataset.go));
 });
 // SÉANCE HORS PROGRAMME : doit couvrir les zones de la séance prévue du jour
-function plannedZones(){
-  const day=getDayProgram(new Date().getDay());
+function plannedZones(dow){
+  const day=getDayProgram(dow==null ? new Date().getDay() : dow);
   if(day.rest || !day.ex) return {name:day.name, zones:[]};
   const zones=[...new Set(day.ex.map(e=>{ const c=CATALOG.find(x=>x.n===e.n); return c && c.zone; }).filter(Boolean))];
   return {name:day.name, zones};
 }
-function openFreeSession(){
-  const plan=plannedZones();
+function openFreeSession(overrideDate, overrideDow){
+  const dow = overrideDow==null ? new Date().getDay() : overrideDow;
+  const plan=plannedZones(dow);
   const sel=new Set();
   const allZones=[...ZONES_ORDER, ...[...new Set(CATALOG.map(e=>e.zone))].filter(z=>z && !ZONES_ORDER.includes(z))];
   const ov=document.createElement("div");
@@ -1377,14 +1378,15 @@ function openFreeSession(){
     if(missing.length){ showToast("Il manque : "+missing.join(", ")); return; }
     const ex=[...sel].map(n=>{ const c=CATALOG.find(x=>x.n===n); return {n, range:c.range||"", sets:c.sets||3, timed:isTimedName(n), dur:30}; });
     closeOverlay(ov);
-    buildSession(new Date().getDay(), null, {name:"Séance hors programme", ex});
+    const forPast = overrideDate ? true : false;
+    buildSession(forPast ? dow : null, overrideDate || null, {name:"Séance hors programme", ex});
     showView("session");
   };
   ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov); });
 }
 document.querySelector("#view-session .subtabs").insertAdjacentHTML("afterend",
   '<button class="btn btn-ghost" id="freeSessBtn" style="width:100%;margin-bottom:12px;">Séance hors programme</button>');
-document.getElementById("freeSessBtn").onclick=openFreeSession;
+document.getElementById("freeSessBtn").onclick=()=>openFreeSession();
 
 function refreshSubtabs(){
   document.querySelectorAll(".subtabs").forEach(bar=>{
@@ -2362,25 +2364,27 @@ document.getElementById("catchupStartBtn").onclick=()=>{
   if(!val) return;
   const dow=new Date(val+"T12:00:00").getDay();
   document.getElementById("catchupModal").classList.remove("active");
-  const dayObj=getDayProgram(dow);
-  if(dayObj.rest || !dayObj.ex || !dayObj.ex.length){ openRestCatchupChooser(dow, val); return; }
-  buildSession(dow, val);
-  showView("session");
+  openRestCatchupChooser(dow, val);
 };
 
 // Le jour à rattraper était un repos : on demande quelle séance a été faite
 function openRestCatchupChooser(dow, val){
+  const dayObj=getDayProgram(dow);
+  const isRest = !!(dayObj.rest || !dayObj.ex || !dayObj.ex.length);
   const tpls=Object.entries(PROG.templates).filter(([id,t])=>!t.rest && t.ex && t.ex.length);
-  if(!tpls.length){ showToast("Aucune séance à rattraper. Crée-en une dans Réglages."); return; }
   const ov=document.createElement("div");
   ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;";
   ov.innerHTML=`<div class="glass" style="max-width:420px;width:100%;">
     <h3 style="margin:0 0 6px;">Quelle séance ?</h3>
-    <p style="color:var(--sub);font-size:13px;margin:0 0 12px;">Ce jour-là était un repos dans ton programme. Choisis la séance que tu as faite.</p>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 12px;">${isRest ? "Ce jour-là était un repos dans ton programme. " : ""}Choisis ce que tu as fait ce jour-là.</p>
+    ${isRest ? "" : `<button class="btn btn-ghost" data-planned style="margin-bottom:10px;width:100%;">Séance prévue : ${dayObj.name}</button>`}
+    <button class="btn btn-primary" data-free style="margin-bottom:10px;width:100%;">Séance hors programme</button>
     ${tpls.map(([id,t])=>`<button class="btn btn-ghost" data-tpl="${id}" style="margin-bottom:8px;justify-content:flex-start;">${t.name}</button>`).join("")}
     <button class="btn btn-ghost" data-close style="margin-top:6px;">Annuler</button>
   </div>`;
   ov.addEventListener("click",e=>{
+    if(e.target.closest("[data-free]")){ closeOverlay(ov); openFreeSession(val, dow); return; }
+    if(e.target.closest("[data-planned]")){ closeOverlay(ov); buildSession(dow, val); showView("session"); return; }
     const b=e.target.closest("[data-tpl]");
     if(b){ const t=PROG.templates[b.dataset.tpl]; closeOverlay(ov); buildSession(dow, val, t); showView("session"); return; }
     if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov);
