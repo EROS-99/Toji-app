@@ -738,6 +738,7 @@ document.getElementById("restSecondsInput").onchange=(e)=>{
 // CATALOGUE
 let CATALOG=[];
 const BASE_CATALOG=[
+  {n:"Tirage barre penché",zone:"Dos",equip:"Barre",sets:3,range:"8–12"},
   {n:"Pompes classiques",zone:"Pectoraux",equip:"Poids du corps",sets:4,range:"10–20"},
   {n:"Pompes pieds surélevés",zone:"Pectoraux",equip:"Poids du corps",sets:4,range:"8–15"},
   {n:"Pompes diamant",zone:"Pectoraux",equip:"Poids du corps",sets:3,range:"8–15"},
@@ -1328,6 +1329,63 @@ document.querySelector("#view-session").insertAdjacentHTML("afterbegin",
 document.querySelectorAll(".subtabs").forEach(bar=>{
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>showView(b.dataset.go));
 });
+// SÉANCE HORS PROGRAMME : doit couvrir les zones de la séance prévue du jour
+function plannedZones(){
+  const day=getDayProgram(new Date().getDay());
+  if(day.rest || !day.ex) return {name:day.name, zones:[]};
+  const zones=[...new Set(day.ex.map(e=>{ const c=CATALOG.find(x=>x.n===e.n); return c && c.zone; }).filter(Boolean))];
+  return {name:day.name, zones};
+}
+function openFreeSession(){
+  const plan=plannedZones();
+  const sel=new Set();
+  const allZones=[...ZONES_ORDER, ...[...new Set(CATALOG.map(e=>e.zone))].filter(z=>z && !ZONES_ORDER.includes(z))];
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:320;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto;overscroll-behavior:contain;";
+  ov.innerHTML=`<div class="glass" style="max-width:440px;width:100%;text-align:left;">
+    <h3 style="margin:0 0 6px;">Séance hors programme</h3>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 12px;">${plan.zones.length
+      ? `Aujourd'hui, la séance prévue est « ${plan.name} ». Ta séance doit toucher ces zones :`
+      : "Aujourd'hui est un jour de repos : aucune zone n'est imposée."}</p>
+    <div id="fsZones" class="chips" style="margin-bottom:12px;"></div>
+    <div id="fsList"></div>
+    <button class="btn btn-primary" id="fsStart" style="width:100%;margin-top:14px;">Commencer la séance</button>
+    <button class="btn btn-ghost" data-close style="width:100%;margin-top:8px;">Annuler</button>
+  </div>`;
+  openOverlay(ov);
+  const covered=()=>new Set([...sel].map(n=>{ const c=CATALOG.find(x=>x.n===n); return c && c.zone; }).filter(Boolean));
+  const drawZones=()=>{
+    const cov=covered();
+    document.getElementById("fsZones").innerHTML=plan.zones.map(z=>`<span class="chip${cov.has(z)?" on":""}">${cov.has(z)?"✓ ":""}${z}</span>`).join("");
+  };
+  const drawList=()=>{
+    document.getElementById("fsList").innerHTML=allZones.map(z=>{
+      const list=[...new Set(CATALOG.filter(e=>e.zone===z).map(e=>e.n))];
+      if(!list.length) return "";
+      return `<div style="margin-bottom:10px;"><div class="streak-lbl" style="margin:4px 0 6px;">${z}</div><div class="chips">${list.map(n=>`<button class="chip${sel.has(n)?" on":""}" data-n="${n.replace(/"/g,'&quot;')}">${n}</button>`).join("")}</div></div>`;
+    }).join("");
+    ov.querySelectorAll("#fsList [data-n]").forEach(b=>b.onclick=()=>{
+      const n=b.dataset.n; sel.has(n) ? sel.delete(n) : sel.add(n);
+      drawList(); drawZones();
+    });
+  };
+  drawZones(); drawList();
+  ov.querySelector("#fsStart").onclick=()=>{
+    if(!sel.size){ showToast("Choisis au moins un exercice."); return; }
+    const cov=covered();
+    const missing=plan.zones.filter(z=>!cov.has(z));
+    if(missing.length){ showToast("Il manque : "+missing.join(", ")); return; }
+    const ex=[...sel].map(n=>{ const c=CATALOG.find(x=>x.n===n); return {n, range:c.range||"", sets:c.sets||3, timed:isTimedName(n), dur:30}; });
+    closeOverlay(ov);
+    buildSession(new Date().getDay(), null, {name:"Séance hors programme", ex});
+    showView("session");
+  };
+  ov.addEventListener("click",e=>{ if(e.target===ov || e.target.closest("[data-close]")) closeOverlay(ov); });
+}
+document.querySelector("#view-session .subtabs").insertAdjacentHTML("afterend",
+  '<button class="btn btn-ghost" id="freeSessBtn" style="width:100%;margin-bottom:12px;">Séance hors programme</button>');
+document.getElementById("freeSessBtn").onclick=openFreeSession;
+
 function refreshSubtabs(){
   document.querySelectorAll(".subtabs").forEach(bar=>{
     const cur=document.querySelector(".view.active")?.id.replace("view-","");
