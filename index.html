@@ -147,6 +147,8 @@ select option{background:var(--bg1);color:var(--text);}
 .cal-h{font-size:11px;color:var(--sub);text-align:center;padding:4px 0;}
 .cal-d{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--glass);border:1px solid var(--glass-brd);color:var(--text);}
 .cal-d.done{background:#9EF0B8;color:#0b0e17;border-color:transparent;font-weight:600;}
+.cal-d.free{background:#8B6CF6;color:#fff;border-color:transparent;font-weight:600;}
+.sw-dot.free{background:#8B6CF6;color:#fff;border-color:transparent;font-weight:700;}
 .cal-d.missed{background:#FF6B6B;color:#fff;border-color:transparent;}
 .cal-d.rest{opacity:.45;}
 .cal-d.skip{border:1px solid var(--sub);color:var(--sub);}
@@ -1255,7 +1257,7 @@ function dayStatusFor(d, byKey, today){
   const list=byKey[localKey(d)]||[];
   const real=list.filter(s=>!s.skip);
   const diff=Math.round((today-d)/86400000);
-  if(real.length) return "done";
+  if(real.length) return real.every(s=>s.dayName==="Séance hors programme") ? "free" : "done";
   if(list.length) return "skip";
   if(diff<0) return "future";
   if(getDayProgram(d.getDay()).rest) return "rest";
@@ -1282,6 +1284,7 @@ function openCalendar(){
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-legend">
       <span><i style="background:#9EF0B8;"></i>faite</span>
+      <span><i style="background:#8B6CF6;"></i>hors programme</span>
       <span><i style="background:var(--glass);border:1px solid var(--glass-brd);opacity:.5;"></i>repos</span>
       <span><i style="background:#FF6B6B;"></i>ratée</span>
       <span><i style="border:1px solid var(--sub);"></i>sautée</span>
@@ -2155,7 +2158,7 @@ function renderStreakWeek(sessions, info){
     const real=list.filter(s=>!s.skip);
     const diff=Math.round((today-d)/86400000);
     let st, icon;
-    if(real.length){ st="done"; icon="✓"; }
+    if(real.length){ st = real.every(s=>s.dayName==="Séance hors programme") ? "free" : "done"; icon="✓"; }
     else if(list.length){ st="skip"; icon="↷"; }
     else if(diff<0){ st="future"; icon=String(d.getDate()); }
     else if(getDayProgram(d.getDay()).rest){ st="rest"; icon="·"; }
@@ -2383,7 +2386,7 @@ function openRestCatchupChooser(dow, val){
     <button class="btn btn-ghost" data-close style="margin-top:6px;">Annuler</button>
   </div>`;
   ov.addEventListener("click",e=>{
-    if(e.target.closest("[data-free]")){ closeOverlay(ov); openFreeSession(val, dow); return; }
+    if(e.target.closest("[data-free]")){ ov.remove(); openFreeSession(val, dow); return; }
     if(e.target.closest("[data-planned]")){ closeOverlay(ov); buildSession(dow, val); showView("session"); return; }
     const b=e.target.closest("[data-tpl]");
     if(b){ const t=PROG.templates[b.dataset.tpl]; closeOverlay(ov); buildSession(dow, val, t); showView("session"); return; }
